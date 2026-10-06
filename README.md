@@ -363,11 +363,11 @@ Aproveitamento E1:         97%
 
 ## Requisitos funcionais
 
-➡️ [`docs/funcionais.md`](docs/funcionais.md)
+➡️ [`docs/requisitos/funcionais.md`](docs/requisitos/funcionais.md)
 
 ## Requisitos não funcionais
 
-➡️ [`docs/naofuncionais.md`](docs/naofuncionais.md)
+➡️ [`docs/requisitos/naofuncionais.md`](docs/requisitos/naofuncionais.md)
 
 ---
 
