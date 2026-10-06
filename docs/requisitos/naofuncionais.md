@@ -149,7 +149,7 @@ O usuário deverá conseguir identificar quando um dispositivo estiver:
 ```text
 Wi-Fi
 LoRa
-Offline
+Nuvem
 ```
 
 ---
