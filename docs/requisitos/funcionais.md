@@ -255,7 +255,7 @@ O sistema deverá permitir identificar se o dispositivo está utilizando:
 ```text
 Wi-Fi
 LoRa
-Offline
+Nuvem
 ```
 
 ## RF45 — Monitorar gateway LoRa
