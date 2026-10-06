@@ -2,160 +2,197 @@
 
 Este documento apresenta os requisitos funcionais do Sistema de Monitoramento de Perdas da Esteira E1.
 
-Os requisitos descrevem **o que o sistema deverá fazer**.
-
 ---
+
+# Gestão da produção
 
 ## RF01 — Iniciar produção
 
-O sistema deverá permitir iniciar uma nova produção.
-
-O registro deverá possuir, no mínimo:
-
-- identificador;
-- data e horário de início;
-- status da produção.
-
-Informações adicionais, como modelo ou produto, poderão ser informadas quando disponíveis.
-
----
+O sistema deverá permitir iniciar uma nova produção, registrando data, horário e status.
 
 ## RF02 — Encerrar produção
 
-O sistema deverá permitir encerrar uma produção em andamento.
+O sistema deverá permitir encerrar uma produção após a confirmação de que não existem mais produtos percorrendo a E1.
 
-O encerramento deverá ocorrer somente após a confirmação de que a alimentação da E1 foi interrompida e que não existem mais produtos percorrendo a esteira.
+## RF03 — Associar informações à produção ativa
 
----
-
-## RF03 — Contabilizar entrada de produtos
-
-O sistema deverá registrar automaticamente cada passagem válida identificada pelo sensor localizado no início da E1.
-
-Cada detecção válida deverá incrementar a contagem de entrada da produção ativa.
+Eventos dos sensores e registros realizados no totem deverão ser associados à produção ativa.
 
 ---
 
-## RF04 — Contabilizar saída de produtos
+# Sensoriamento
 
-O sistema deverá registrar automaticamente cada passagem válida identificada pelo sensor localizado ao final da E1.
+## RF04 — Contabilizar entrada
 
-Cada detecção válida deverá incrementar a contagem de saída da produção ativa.
+O sistema deverá registrar cada passagem válida identificada pelo sensor localizado no início da E1.
 
----
+## RF05 — Contabilizar saída
 
-## RF05 — Evitar múltiplas contagens da mesma passagem
+O sistema deverá registrar cada passagem válida identificada pelo sensor localizado ao final da E1.
 
-O sistema deverá impedir que a permanência de um mesmo par de solados diante do sensor gere múltiplos registros.
+## RF06 — Evitar múltiplas contagens físicas
 
-Uma nova contagem deverá ocorrer somente após a finalização da passagem anterior.
+Um mesmo produto não deverá gerar vários eventos enquanto permanecer diante do sensor.
 
----
+## RF07 — Gerar identificador único
 
-## RF06 — Associar eventos à produção ativa
+Cada evento deverá possuir um `event_id` único.
 
-Os eventos recebidos dos sensores deverão ser associados à produção que estiver ativa no momento da detecção.
-
----
-
-## RF07 — Registrar descarte da triagem
-
-O sistema deverá permitir que a funcionária responsável pela triagem registre um descarte através do totem.
+O identificador deverá permanecer o mesmo independentemente do meio utilizado para a transmissão.
 
 ---
 
-## RF08 — Informar motivo do descarte
+# Comunicação Wi-Fi/MQTT
 
-Ao registrar um descarte, o sistema deverá permitir selecionar um motivo previamente cadastrado.
+## RF08 — Utilizar Wi-Fi como canal principal
 
-Exemplos poderão incluir:
+Em condições normais, os eventos deverão ser enviados pelo ESP32 utilizando Wi-Fi.
 
-- defeito no material;
-- corte irregular;
-- deformação;
-- outro.
+## RF09 — Transmitir eventos por MQTT
 
-A lista definitiva deverá ser validada com a empresa.
+Os eventos deverão ser publicados para o servidor através do protocolo MQTT.
 
----
+## RF10 — Confirmar recebimento
 
-## RF09 — Informar quantidade descartada
-
-O sistema deverá permitir informar a quantidade de pares relacionada ao registro de descarte.
+O sistema deverá ser capaz de determinar se o evento foi recebido pelo servidor.
 
 ---
 
-## RF10 — Registrar automaticamente data e horário do descarte
+# Comunicação LoRa
 
-Ao realizar um registro pelo totem, o sistema deverá armazenar automaticamente a data e o horário da operação.
+## RF11 — Detectar indisponibilidade do canal principal
+
+O ESP32 deverá detectar quando não conseguir transmitir normalmente os dados utilizando Wi-Fi/MQTT.
+
+## RF12 — Ativar fallback LoRa
+
+Quando o canal principal estiver indisponível, o dispositivo deverá tentar enviar os eventos através da comunicação LoRa.
+
+## RF13 — Receber dados via LoRa
+
+A solução deverá possuir um gateway/receptor LoRa capaz de receber as mensagens enviadas pelos sensores.
+
+## RF14 — Encaminhar evento LoRa ao backend
+
+Eventos recebidos pelo gateway deverão ser encaminhados ao backend do sistema.
+
+## RF15 — Retornar automaticamente ao Wi-Fi
+
+Quando o canal principal voltar a funcionar, o ESP32 deverá retornar ao uso prioritário de Wi-Fi/MQTT.
+
+## RF16 — Registrar utilização do fallback
+
+O sistema deverá registrar quando um evento tiver sido enviado utilizando LoRa.
 
 ---
 
-## RF11 — Associar descarte à produção ativa
+# Persistência local
 
-Os descartes realizados no totem deverão ser associados à produção que estiver ativa no momento do registro.
+## RF17 — Armazenar eventos pendentes
+
+Caso Wi-Fi e LoRa estejam indisponíveis, o ESP32 deverá manter localmente os eventos ainda não entregues.
+
+## RF18 — Sincronizar eventos pendentes
+
+Quando algum canal de comunicação voltar a ficar disponível, os eventos pendentes deverão ser transmitidos.
+
+## RF19 — Remover evento confirmado
+
+Um evento deverá ser removido da fila local somente após a confirmação de que foi recebido pelo servidor.
 
 ---
 
-## RF12 — Permitir correção de registro
+# Deduplicação
 
-O sistema deverá disponibilizar uma forma controlada de corrigir ou desfazer um registro de descarte realizado incorretamente.
+## RF20 — Identificar eventos já processados
+
+O backend deverá verificar o `event_id` antes de registrar uma nova contagem.
+
+## RF21 — Evitar contagem duplicada entre Wi-Fi e LoRa
+
+Caso o mesmo evento seja recebido pelos dois canais, ele deverá ser contabilizado apenas uma vez.
+
+## RF22 — Evitar duplicidade durante sincronização
+
+Eventos enviados novamente após recuperação de comunicação não deverão gerar novas contagens caso já tenham sido processados.
 
 ---
 
-## RF13 — Calcular descartes da triagem
+# Totem
 
-O sistema deverá calcular a quantidade total de descartes da triagem através da soma dos registros realizados no totem.
+## RF23 — Registrar descarte
+
+O sistema deverá permitir registrar os descartes realizados durante a triagem.
+
+## RF24 — Selecionar motivo
+
+A funcionária deverá selecionar um motivo previamente cadastrado.
+
+## RF25 — Informar quantidade
+
+O sistema deverá permitir informar a quantidade descartada.
+
+## RF26 — Registrar data e horário
+
+Data e horário deverão ser registrados automaticamente.
+
+## RF27 — Associar descarte à produção
+
+O descarte deverá ser associado à produção ativa.
+
+## RF28 — Permitir correção
+
+O sistema deverá oferecer uma forma controlada de corrigir um lançamento incorreto.
+
+## RF29 — Armazenar registro offline no totem
+
+Caso o totem perca conexão com o servidor, o registro deverá permanecer armazenado localmente.
+
+## RF30 — Sincronizar registros do totem
+
+Os registros pendentes deverão ser transmitidos quando a comunicação voltar.
+
+## RF31 — Evitar duplicidade no totem
+
+Um registro sincronizado mais de uma vez não deverá produzir duplicações no banco.
+
+---
+
+# Cálculos
+
+## RF32 — Calcular descartes da triagem
 
 ```text
 Descartes da triagem =
-Soma das quantidades registradas
+Soma das quantidades registradas no totem
 ```
 
----
-
-## RF14 — Exibir diferença momentânea
-
-Durante uma produção em andamento, o sistema deverá calcular e exibir a diferença entre as contagens de entrada e saída.
+## RF33 — Calcular diferença momentânea
 
 ```text
 Diferença momentânea =
 Entrada E1 - Saída E1
 ```
 
-Essa diferença não deverá ser classificada como perda definitiva enquanto a produção estiver ativa.
+Enquanto a produção estiver ativa, essa diferença não deverá ser considerada perda definitiva.
 
----
+## RF34 — Calcular perdas da E1
 
-## RF15 — Calcular perdas da E1
-
-Após o encerramento da produção, o sistema deverá calcular as perdas ocorridas durante o processo da E1.
+Após o encerramento:
 
 ```text
 Perdas E1 =
 Entrada E1 - Saída E1
 ```
 
-O sistema não deverá atribuir automaticamente um motivo às perdas calculadas entre os sensores.
-
----
-
-## RF16 — Calcular perdas observadas
-
-Após o encerramento da produção, o sistema deverá permitir visualizar o total de perdas observadas.
+## RF35 — Calcular perdas observadas
 
 ```text
 Perdas observadas =
 Descartes da triagem + Perdas E1
 ```
 
-Esse indicador não deverá ser tratado como perda de um lote original, pois a quantidade inicialmente recebida na triagem não é conhecida.
-
----
-
-## RF17 — Calcular aproveitamento da E1
-
-O sistema deverá calcular o percentual de produtos que entraram na E1 e chegaram ao final do processo.
+## RF36 — Calcular aproveitamento
 
 ```text
 Aproveitamento E1 =
@@ -164,123 +201,99 @@ Aproveitamento E1 =
 
 ---
 
-## RF18 — Exibir indicadores da produção atual
+# Dashboard
 
-O dashboard deverá apresentar, no mínimo:
+## RF37 — Exibir produção atual
 
-- contagem de entrada;
-- contagem de saída;
-- descartes registrados na triagem;
+O dashboard deverá apresentar:
+
+- entrada;
+- saída;
 - diferença momentânea;
+- descartes da triagem;
 - status da produção.
 
----
+## RF38 — Exibir produção encerrada
 
-## RF19 — Exibir resultado de produção finalizada
+O dashboard deverá apresentar:
 
-Após o encerramento, o dashboard deverá apresentar, no mínimo:
-
-- total enviado para a E1;
-- total finalizado;
-- perdas da E1;
-- descartes da triagem;
+- entrada total;
+- saída total;
+- perdas E1;
+- descartes;
 - perdas observadas;
-- aproveitamento da E1.
+- aproveitamento.
+
+## RF39 — Exibir descartes por motivo
+
+O dashboard deverá apresentar os descartes agrupados pelos motivos registrados no totem.
+
+## RF40 — Manter histórico
+
+O sistema deverá permitir consultar produções anteriormente encerradas.
 
 ---
 
-## RF20 — Exibir descartes por motivo
+# Monitoramento
 
-O dashboard deverá apresentar a distribuição dos descartes registrados na triagem de acordo com seus respectivos motivos.
+## RF41 — Monitorar sensor de entrada
 
----
+O sistema deverá indicar o estado do dispositivo responsável pela entrada.
 
-## RF21 — Manter histórico de produções
+## RF42 — Monitorar sensor de saída
 
-O sistema deverá armazenar as produções realizadas para permitir consultas posteriores.
+O sistema deverá indicar o estado do dispositivo responsável pela saída.
 
----
+## RF43 — Registrar última comunicação
 
-## RF22 — Consultar produção anterior
+O sistema deverá armazenar quando ocorreu a última comunicação de cada dispositivo.
 
-O usuário deverá ser capaz de consultar os indicadores de uma produção já encerrada.
+## RF44 — Exibir canal de comunicação
 
----
-
-## RF23 — Registrar eventos dos sensores
-
-O sistema deverá armazenar os eventos individuais enviados pelos sensores.
-
-Cada evento deverá possuir informações suficientes para identificar, no mínimo:
-
-- dispositivo;
-- produção;
-- tipo de evento;
-- data e horário.
-
----
-
-## RF24 — Identificar eventos duplicados
-
-O sistema deverá possuir mecanismo para evitar que o mesmo evento enviado mais de uma vez seja contabilizado repetidamente.
-
----
-
-## RF25 — Monitorar dispositivos
-
-O sistema deverá armazenar informações de comunicação dos dispositivos utilizados na solução.
-
----
-
-## RF26 — Exibir status dos sensores
-
-O dashboard deverá indicar o estado dos sensores de entrada e saída.
-
-Exemplos:
+O sistema deverá permitir identificar se o dispositivo está utilizando:
 
 ```text
-ONLINE
-OFFLINE
+Wi-Fi
+LoRa
+Offline
 ```
 
----
+## RF45 — Monitorar gateway LoRa
 
-## RF27 — Informar última comunicação
+O sistema deverá indicar se o gateway LoRa está disponível.
 
-O sistema deverá permitir consultar quando ocorreu a última comunicação recebida de cada dispositivo monitorado.
+## RF46 — Alertar indisponibilidade total
 
----
+Caso um dispositivo não consiga se comunicar por Wi-Fi nem LoRa, o sistema deverá apresentar seu estado como indisponível.
 
-## RF28 — Alertar indisponibilidade de sensor
+## RF47 — Informar sincronização pendente
 
-Caso um sensor deixe de se comunicar por um período configurado, o sistema deverá indicar sua indisponibilidade.
-
----
-
-## RF29 — Permitir cadastro de motivos
-
-O sistema deverá permitir manter uma relação de motivos utilizados nos registros de descarte.
-
-Os motivos poderão ser ativados ou desativados conforme necessidade da empresa.
+O sistema deverá permitir identificar quando existirem eventos ainda armazenados localmente aguardando sincronização.
 
 ---
 
-## RF30 — Atualizar dashboard durante a produção
+# Cadastros
 
-As informações recebidas dos sensores ou registradas no totem deverão ser refletidas no dashboard enquanto a produção estiver acontecendo.
+## RF48 — Gerenciar motivos de descarte
+
+O sistema deverá permitir cadastrar, ativar e desativar motivos apresentados no totem.
 
 ---
 
 # Resumo
 
-Os requisitos funcionais podem ser agrupados em cinco áreas:
-
-| Área | Requisitos |
+| Categoria | Requisitos |
 |---|---|
-| Produção | RF01, RF02, RF06 |
-| Sensoriamento | RF03, RF04, RF05, RF23, RF24 |
-| Totem | RF07 a RF13, RF29 |
-| Indicadores e dashboard | RF14 a RF22, RF30 |
-| Monitoramento | RF25 a RF28 |
+| Produção | RF01–RF03 |
+| Sensoriamento | RF04–RF07 |
+| Wi-Fi/MQTT | RF08–RF10 |
+| LoRa | RF11–RF16 |
+| Persistência | RF17–RF19 |
+| Deduplicação | RF20–RF22 |
+| Totem | RF23–RF31 |
+| Cálculos | RF32–RF36 |
+| Dashboard | RF37–RF40 |
+| Monitoramento | RF41–RF47 |
+| Cadastros | RF48 |
 
-Os requisitos poderão ser revisados durante os testes e a validação da solução com a empresa.
+Os requisitos poderão ser refinados durante os testes de bancada e a validação na empresa.

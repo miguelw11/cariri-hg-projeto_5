@@ -2,43 +2,51 @@
 
 Sistema desenvolvido para monitorar, em tempo real, a movimentação e as perdas de pares de solados durante o processo produtivo da esteira **E1**.
 
-A solução combina **sensoriamento automático**, **registro manual de descartes** e **visualização em dashboard**, permitindo acompanhar quantos pares entram na E1, quantos chegam ao final do processo e quantos foram descartados durante a triagem realizada antes da esteira.
+A solução combina:
+
+- contagem automática por sensores;
+- registro manual de descartes;
+- comunicação principal via Wi-Fi;
+- comunicação LoRa como contingência;
+- armazenamento local para recuperação de falhas;
+- servidor central;
+- dashboard de acompanhamento.
 
 ---
 
 ## Contexto
 
-A empresa possui duas esteiras principais no processo de produção:
+A empresa possui duas esteiras principais:
 
 - **E1:** etapa de produção/processamento dos pares de solados;
 - **E2:** etapa posterior, responsável pela colocação das correias.
 
-O projeto terá como foco inicial a **esteira E1**, por ser a etapa de maior interesse em relação às perdas observadas durante o processo.
+O projeto terá como foco inicial a **E1**, por ser a etapa de interesse em relação às perdas do processo.
 
-Antes da entrada na E1, uma funcionária realiza manualmente a inspeção dos pares de solados. Produtos considerados inadequados são descartados antes de entrarem na esteira.
+Antes da entrada na E1, uma funcionária realiza manualmente a triagem dos pares de solados. Produtos considerados inadequados são descartados antes de entrarem na esteira.
 
-Os produtos aprovados são colocados na E1 e passam por um primeiro ponto de contagem. Ao final da esteira, um segundo ponto realiza uma nova contagem.
+Os produtos aprovados passam por um primeiro ponto de contagem e, ao final da E1, por um segundo ponto de contagem.
 
-Dessa maneira, o sistema permitirá acompanhar separadamente:
+O sistema permitirá acompanhar:
 
-- descartes identificados durante a triagem;
+- descartes realizados antes da E1;
 - produtos enviados para a E1;
-- produtos que concluíram a E1;
-- perdas ocorridas durante o percurso da E1.
+- produtos que concluíram o processo;
+- perdas ocorridas entre os sensores;
+- estado dos dispositivos;
+- estado dos canais de comunicação.
 
 ---
 
 ## Objetivo
 
-Desenvolver um sistema de monitoramento capaz de registrar e apresentar, em tempo real, informações relacionadas à produção e às perdas da esteira E1.
+Desenvolver um sistema capaz de monitorar, registrar e apresentar em tempo real as perdas relacionadas ao processo produtivo da esteira E1.
 
-A solução deverá permitir que a empresa acompanhe de forma centralizada os principais indicadores do processo, mantendo também um histórico das produções realizadas.
+A solução deverá continuar enviando os dados mesmo em situações de indisponibilidade temporária da rede Wi-Fi, utilizando comunicação LoRa como canal alternativo.
 
 ---
 
 ## Funcionamento
-
-O fluxo monitorado será:
 
 ```text
                 PRODUTOS DISPONÍVEIS
@@ -53,12 +61,14 @@ O fluxo monitorado será:
               │                   │
               ▼                   ▼
             TOTEM           SENSOR INICIAL
+                              E18-D80NK
                                   │
                                   ▼
                               ESTEIRA E1
                                   │
                                   ▼
                              SENSOR FINAL
+                              E18-D80NK
                                   │
                                   ▼
                          PRODUTO FINALIZADO
@@ -66,122 +76,212 @@ O fluxo monitorado será:
 
 ### Triagem
 
-Antes da E1, a funcionária identifica visualmente produtos inadequados.
+Os produtos rejeitados pela funcionária serão registrados por meio de uma aplicação disponível em um totem.
 
-Quando houver um descarte, ele será registrado através de uma aplicação disponível em um totem.
+Cada registro deverá possuir, no mínimo:
 
-O registro conterá informações como:
-
-- motivo do descarte;
+- motivo;
 - quantidade;
-- data;
-- horário;
-- produção relacionada.
+- produção;
+- data e horário.
 
-Não é conhecida, inicialmente, a quantidade total de pares recebida pela funcionária. Portanto, os descartes da triagem serão tratados como um indicador independente.
+A quantidade total recebida pela funcionária não é conhecida inicialmente. Por isso, os descartes da triagem serão tratados como um indicador independente.
 
-### Entrada da E1
+---
 
-Os pares aprovados passam por um sensor **E18-D80NK**, responsável pela contagem de entrada.
+## Contagem da E1
 
-Cada passagem válida representa:
+Dois sensores **E18-D80NK** serão utilizados:
 
-```text
-Entrada E1 + 1
-```
+- um no início da E1;
+- um no final da E1.
 
-### Saída da E1
-
-Ao final do processo, outro sensor E18-D80NK realiza a contagem dos pares que concluíram a esteira.
-
-Cada passagem válida representa:
+Cada sensor será conectado a um ESP32 responsável por detectar as passagens e transmitir os eventos.
 
 ```text
-Saída E1 + 1
+Entrada E1 = eventos válidos do sensor inicial
+
+Saída E1 = eventos válidos do sensor final
 ```
 
-### Perdas durante a E1
+---
 
-Após o encerramento de uma produção, as perdas da esteira serão calculadas através de:
+## Perdas da E1
+
+Depois do encerramento da produção:
 
 ```text
 Perdas E1 = Entrada E1 - Saída E1
 ```
 
-Exemplo:
-
-```text
-Entrada E1: 500
-Saída E1:   486
-Perdas E1:   14
-```
-
 O sistema não buscará identificar automaticamente o motivo dessas perdas.
 
-### Perdas observadas
+---
 
-Os descartes da triagem e as perdas da E1 poderão ser apresentados de forma consolidada:
+## Perdas observadas
+
+Os descartes da triagem e as perdas da E1 poderão ser visualizados de forma consolidada:
 
 ```text
 Perdas observadas =
 Descartes da triagem + Perdas E1
 ```
 
-Como não sabemos quantos produtos foram originalmente recebidos pela funcionária, esse indicador não representa necessariamente todas as perdas de um lote inicial.
+Como a quantidade originalmente recebida pela funcionária não é conhecida, esse indicador não representa necessariamente todas as perdas de um lote original.
 
 ---
 
 ## Produção em andamento
 
-Durante uma produção, a diferença entre os sensores **não deverá ser considerada imediatamente uma perda**.
-
-Por exemplo:
+Enquanto uma produção estiver ativa, a diferença entre entrada e saída não deverá ser considerada perda definitiva.
 
 ```text
-Entrada E1: 500
-Saída E1:   350
+Diferença momentânea =
+Entrada E1 - Saída E1
 ```
 
-Parte dos 150 pares restantes pode ainda estar percorrendo a esteira.
+Produtos ainda podem estar percorrendo a esteira.
 
-Durante esse período, o sistema exibirá uma **diferença momentânea**.
-
-A perda da E1 somente será consolidada após o encerramento da alimentação da esteira e a confirmação de que não existem mais produtos em processamento.
+A perda da E1 somente será consolidada após o encerramento da produção e a confirmação de que não existem mais produtos em processamento.
 
 ---
 
-## Arquitetura
+# Comunicação
 
-A arquitetura inicial será:
+O sistema utilizará três níveis de comunicação e segurança dos dados.
+
+## 1. Canal principal — Wi-Fi + MQTT
+
+Em condições normais:
 
 ```text
-Sensor Entrada ─► ESP32 ───────┐
-                               │
-Sensor Saída   ─► ESP32 ───────┼──► Rede local
-                               │        │
-Totem ─────────────────────────┘        ▼
-                                    Notebook
-                                       │
-                          ┌────────────┼────────────┐
-                          │            │            │
-                         MQTT       Backend       Banco
-                          │            │            │
-                          └────────────┼────────────┘
-                                       │
-                                       ▼
-                                   Dashboard
+Sensor
+   │
+   ▼
+ESP32
+   │
+   ▼
+Wi-Fi
+   │
+   ▼
+MQTT
+   │
+   ▼
+Notebook
 ```
 
-O **notebook** funcionará como servidor central do sistema.
+Esse será o caminho prioritário dos eventos.
 
-Os ESP32 serão responsáveis pela leitura dos sensores e pelo envio dos eventos através da rede.
+---
 
-O notebook deverá centralizar inicialmente:
+## 2. Canal de contingência — LoRa
 
-- broker MQTT;
-- backend/API;
-- banco de dados;
-- dashboard.
+Caso o ESP32 não consiga transmitir pelo canal principal, ele utilizará LoRa como alternativa.
+
+```text
+Sensor
+   │
+   ▼
+ESP32 + LoRa
+   │
+   ▼
+  LoRa
+   │
+   ▼
+Gateway LoRa
+   │
+   ▼
+Notebook
+```
+
+O objetivo é manter o acompanhamento em tempo real mesmo durante falhas do Wi-Fi.
+
+Quando a comunicação Wi-Fi/MQTT voltar, o dispositivo retorna automaticamente ao canal principal.
+
+---
+
+## 3. Armazenamento local
+
+Caso Wi-Fi e LoRa estejam indisponíveis simultaneamente, o ESP32 continuará realizando a contagem e armazenará temporariamente os dados localmente.
+
+Quando algum canal voltar a funcionar, os registros pendentes deverão ser sincronizados.
+
+```text
+Wi-Fi disponível?
+      │
+      ├── Sim → enviar por MQTT
+      │
+      └── Não
+           │
+           ▼
+      LoRa disponível?
+           │
+           ├── Sim → enviar por LoRa
+           │
+           └── Não
+                │
+                ▼
+         armazenar localmente
+```
+
+---
+
+## Identificação dos eventos
+
+Cada passagem válida deverá gerar um evento com identificador único.
+
+Exemplo:
+
+```json
+{
+  "event_id": "ENT-00001234",
+  "device_id": "sensor-entrada-e1",
+  "production_id": 15,
+  "timestamp": "2026-10-06T14:32:10"
+}
+```
+
+O mesmo `event_id` deverá ser mantido independentemente de o evento ser enviado por Wi-Fi, LoRa ou sincronização posterior.
+
+Isso evita que um mesmo produto seja contabilizado duas vezes.
+
+---
+
+# Arquitetura
+
+```text
+           SENSOR ENTRADA
+              E18-D80NK
+                  │
+                  ▼
+            ESP32 + LoRa
+              │       │
+              │       └────────── LoRa ────────┐
+              │                                │
+              └── Wi-Fi / MQTT ─────────┐      │
+                                        │      ▼
+           SENSOR SAÍDA                 │  Gateway LoRa
+              E18-D80NK                 │      │
+                  │                     │      │
+                  ▼                     │      │
+            ESP32 + LoRa                │      │
+              │       │                 │      │
+              │       └── LoRa ─────────┘      │
+              │                                │
+              └── Wi-Fi / MQTT ────────────────┤
+                                               │
+TOTEM ─────────────── HTTP/API ────────────────┤
+                                               ▼
+                                            NOTEBOOK
+                                               │
+                        ┌──────────────────────┼─────────────────┐
+                        │                      │                 │
+                     MQTT Broker            Backend          Banco
+                                               │                 │
+                                               └───────┬─────────┘
+                                                       ▼
+                                                   Dashboard
+```
 
 ---
 
@@ -191,17 +291,41 @@ O notebook deverá centralizar inicialmente:
 |---|---|
 | Sensor | E18-D80NK |
 | Microcontrolador | ESP32 |
-| Firmware | C++ / Arduino |
-| Comunicação | MQTT |
+| Comunicação principal | Wi-Fi + MQTT |
+| Comunicação de contingência | LoRa |
+| Armazenamento de contingência | Flash do ESP32 |
 | Broker | Eclipse Mosquitto |
 | Backend | Python + FastAPI |
-| Banco de dados | PostgreSQL |
+| Banco | PostgreSQL |
 | Totem | Aplicação Web/PWA |
 | Dashboard | Grafana |
 | Servidor | Notebook |
 | Versionamento | Git |
 
-As tecnologias podem ser alteradas durante o desenvolvimento caso sejam encontradas alternativas mais adequadas.
+---
+
+## Totem
+
+O totem será utilizado exclusivamente para registrar os descartes realizados antes da E1.
+
+Fluxo básico:
+
+```text
+Registrar descarte
+        │
+        ▼
+Selecionar motivo
+        │
+        ▼
+Informar quantidade
+        │
+        ▼
+Confirmar
+```
+
+Caso o totem perca acesso ao servidor, os registros deverão ser mantidos localmente até a comunicação ser restabelecida.
+
+O LoRa será destinado inicialmente aos dispositivos de sensoriamento, não ao totem.
 
 ---
 
@@ -209,17 +333,20 @@ As tecnologias podem ser alteradas durante o desenvolvimento caso sejam encontra
 
 O dashboard deverá apresentar informações como:
 
-- produtos enviados para a E1;
-- produtos que concluíram a E1;
-- diferença momentânea durante a produção;
-- perdas da E1 após o encerramento;
-- descartes realizados na triagem;
+- entrada da E1;
+- saída da E1;
+- diferença momentânea;
+- perdas da E1;
+- descartes da triagem;
 - descartes por motivo;
+- perdas observadas;
 - aproveitamento da E1;
 - histórico de produções;
-- situação dos dispositivos.
+- estado dos sensores;
+- canal de comunicação utilizado;
+- estado do gateway LoRa.
 
-Exemplo de produção finalizada:
+Exemplo:
 
 ```text
 Entrada E1:              1.000
@@ -232,27 +359,19 @@ Aproveitamento E1:         97%
 
 ---
 
-## Requisitos
+# Requisitos
 
-Os requisitos foram separados da documentação principal para facilitar sua manutenção.
-
-### Requisitos funcionais
-
-Definem as funcionalidades que deverão ser oferecidas pelo sistema.
+## Requisitos funcionais
 
 ➡️ [`docs/funcionais.md`](docs/funcionais.md)
 
-### Requisitos não funcionais
-
-Definem características de desempenho, disponibilidade, usabilidade, segurança e operação da solução.
+## Requisitos não funcionais
 
 ➡️ [`docs/naofuncionais.md`](docs/naofuncionais.md)
 
 ---
 
-## Documentação
-
-A documentação técnica deverá ser mantida dentro do diretório `docs/`.
+# Documentação
 
 ```text
 docs/
@@ -266,6 +385,9 @@ docs/
 ├── hardware/
 │   └── README.md
 │
+├── comunicacao/
+│   └── README.md
+│
 ├── testes/
 │   └── README.md
 │
@@ -274,23 +396,23 @@ docs/
 
 ### `docs/arquitetura/`
 
-Documentação da arquitetura geral da solução, fluxo de dados, MQTT, backend, banco e comunicação entre os componentes.
+Arquitetura geral, componentes, fluxo de dados, servidor e banco de dados.
 
 ### `docs/hardware/`
 
-Documentação relacionada ao ESP32, sensores E18-D80NK, circuitos, alimentação, montagem e instalação.
+ESP32, E18-D80NK, módulos LoRa, alimentação, circuitos e montagem.
+
+### `docs/comunicacao/`
+
+MQTT, Wi-Fi, LoRa, sincronização, armazenamento local, fallback e tratamento de duplicidades.
 
 ### `docs/testes/`
 
-Planos de teste, resultados obtidos em bancada e posteriormente os testes realizados na esteira real.
-
-### `docs/imagens/`
-
-Diagramas, fotografias autorizadas, esquemas e demais imagens utilizadas na documentação.
+Testes dos sensores, Wi-Fi, LoRa, recuperação de falhas, sincronização e testes realizados na E1.
 
 ---
 
-## Estrutura inicial do repositório
+# Estrutura inicial do repositório
 
 ```text
 monitoramento-e1/
@@ -299,12 +421,11 @@ monitoramento-e1/
 │
 ├── firmware/
 │   ├── sensor-entrada/
-│   └── sensor-saida/
+│   ├── sensor-saida/
+│   └── gateway-lora/
 │
 ├── backend/
-│
 ├── totem/
-│
 ├── dashboard/
 │
 └── docs/
@@ -312,58 +433,69 @@ monitoramento-e1/
     ├── naofuncionais.md
     ├── arquitetura/
     ├── hardware/
+    ├── comunicacao/
     ├── testes/
     └── imagens/
 ```
 
 ---
 
-## Equipe
+# Equipe
 
-A equipe é formada por quatro integrantes.
+O desenvolvimento será dividido inicialmente em quatro frentes:
 
-A divisão inicial poderá seguir quatro frentes:
+### Hardware e IoT
 
-1. **Hardware e IoT**
-   - sensores;
-   - ESP32;
-   - firmware;
-   - comunicação MQTT.
+- E18-D80NK;
+- ESP32;
+- módulos LoRa;
+- firmware;
+- testes físicos.
 
-2. **Backend**
-   - API;
-   - banco de dados;
-   - recebimento dos eventos;
-   - regras de negócio.
+### Backend
 
-3. **Totem**
-   - interface da operadora;
-   - registro de descartes;
-   - integração com a API.
+- MQTT;
+- API;
+- banco;
+- deduplicação;
+- sincronização;
+- processamento dos eventos.
 
-4. **Dashboard e integração**
-   - Grafana;
-   - indicadores;
-   - visualizações;
-   - integração e testes.
+### Totem
 
-As frentes deverão ser desenvolvidas de forma integrada e versionadas no mesmo repositório.
+- interface;
+- registros de descarte;
+- funcionamento offline;
+- sincronização.
+
+### Dashboard e integração
+
+- Grafana;
+- indicadores;
+- monitoramento;
+- testes de contingência;
+- integração geral.
 
 ---
 
-## Etapas previstas
+# Etapas previstas
 
 1. Levantamento físico da E1.
-2. Testes de bancada com o E18-D80NK.
-3. Desenvolvimento do firmware do ESP32.
-4. Configuração da infraestrutura no notebook.
-5. Desenvolvimento do backend e banco de dados.
-6. Desenvolvimento do totem.
-7. Desenvolvimento do dashboard.
-8. Integração dos componentes.
-9. Testes do sistema completo.
-10. Validação controlada na empresa.
-11. Ajustes para instalação piloto.
+2. Testes do E18-D80NK.
+3. Contagem local com ESP32.
+4. Comunicação Wi-Fi/MQTT.
+5. Backend e banco.
+6. Totem.
+7. Dashboard.
+8. Armazenamento local dos eventos.
+9. Comunicação LoRa.
+10. Gateway LoRa.
+11. Lógica de fallback.
+12. Deduplicação dos eventos.
+13. Testes de queda de Wi-Fi.
+14. Testes de queda simultânea Wi-Fi/LoRa.
+15. Integração completa.
+16. Piloto na empresa.
 
 ---
 

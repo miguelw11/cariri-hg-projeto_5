@@ -2,278 +2,285 @@
 
 Este documento apresenta os requisitos não funcionais do Sistema de Monitoramento de Perdas da Esteira E1.
 
-Os requisitos descrevem características relacionadas ao funcionamento, desempenho, confiabilidade, usabilidade, manutenção e operação do sistema.
-
 ---
+
+# Desempenho
 
 ## RNF01 — Atualização em tempo próximo do real
 
-Eventos registrados pelos sensores ou pelo totem deverão ser disponibilizados para visualização no sistema em poucos segundos quando os dispositivos estiverem conectados normalmente à rede.
+Em condições normais de operação, novos eventos deverão ser apresentados no sistema em poucos segundos.
 
-Não existe necessidade de atualização em escala de milissegundos para o dashboard.
+## RNF02 — Continuidade do tempo real
+
+Uma indisponibilidade do Wi-Fi não deverá, por si só, interromper o envio dos eventos em tempo próximo do real quando o canal LoRa estiver disponível.
+
+## RNF03 — Mensagens compactas
+
+As mensagens transmitidas deverão conter apenas as informações necessárias.
+
+Isso é especialmente importante para comunicação via LoRa.
+
+## RNF04 — Capacidade compatível com a produção
+
+A solução deverá suportar a frequência real de passagem dos pares observada na E1.
+
+Esse requisito deverá ser validado experimentalmente.
 
 ---
 
-## RNF02 — Operação em rede local
+# Disponibilidade e resiliência
 
-As principais funcionalidades deverão ser capazes de operar através de uma rede local.
+## RNF05 — Canal principal
 
-A disponibilidade de acesso à internet externa não deverá ser obrigatória para:
+Wi-Fi/MQTT deverá ser utilizado prioritariamente para comunicação entre os ESP32 e o servidor.
 
-- contagem dos sensores;
-- registro dos descartes;
-- armazenamento local;
-- funcionamento do backend;
-- consulta ao dashboard dentro da rede.
+## RNF06 — Canal de contingência
+
+LoRa deverá ser utilizado como canal alternativo quando o Wi-Fi/MQTT estiver indisponível.
+
+## RNF07 — Armazenamento local como última contingência
+
+Caso Wi-Fi e LoRa estejam indisponíveis simultaneamente, os eventos deverão poder ser mantidos localmente até que a comunicação seja restabelecida.
+
+## RNF08 — Recuperação automática
+
+O retorno da comunicação deverá permitir que o sistema retome automaticamente sua operação normal.
+
+## RNF09 — Retorno ao canal prioritário
+
+Após a recuperação do Wi-Fi, os dispositivos deverão voltar automaticamente ao canal principal.
 
 ---
 
-## RNF03 — Disponibilidade do servidor
+# Integridade dos dados
 
-Durante a operação da solução, o notebook responsável pelo servidor deverá permanecer:
+## RNF10 — Persistência antes da confirmação
+
+Um evento não deverá ser removido da fila local antes de sua entrega ser considerada confirmada.
+
+## RNF11 — Idempotência
+
+O processamento de um mesmo `event_id` mais de uma vez deverá produzir o mesmo resultado de uma única execução.
+
+Em outras palavras, o evento deverá ser contabilizado apenas uma vez.
+
+## RNF12 — Independência do canal
+
+A integridade da contagem não deverá depender do canal utilizado para entregar o evento.
+
+O mesmo evento recebido por Wi-Fi ou LoRa deverá representar a mesma passagem física.
+
+## RNF13 — Ordem e consistência
+
+A sincronização de eventos pendentes não deverá alterar incorretamente os resultados finais das produções.
+
+## RNF14 — Persistência no banco
+
+Eventos já armazenados no servidor deverão permanecer disponíveis após reinicializações normais dos serviços.
+
+---
+
+# Comunicação
+
+## RNF15 — Operação sem internet externa
+
+As funções essenciais deverão funcionar dentro da rede local e não depender de acesso à internet.
+
+## RNF16 — Independência do LoRa
+
+O canal LoRa não deverá depender do funcionamento da rede Wi-Fi utilizada pelo sistema.
+
+## RNF17 — Gateway independente dos sensores
+
+Um problema em um dos ESP32 de sensoriamento não deverá impedir o outro ponto de utilizar o gateway LoRa.
+
+## RNF18 — Radiofrequência
+
+Os módulos LoRa utilizados no piloto deverão operar em configuração adequada às normas aplicáveis ao uso de radiofrequência no Brasil.
+
+A definição da frequência e do módulo deverá ser documentada em `docs/hardware/`.
+
+---
+
+# Servidor
+
+## RNF19 — Disponibilidade do notebook
+
+Durante a operação, o notebook deverá permanecer:
 
 - ligado;
-- conectado à alimentação;
-- conectado à rede local;
+- alimentado;
+- conectado aos dispositivos necessários;
 - com suspensão automática desativada.
 
----
+## RNF20 — Ponto central
 
-## RNF04 — Persistência dos dados
+A contingência LoRa não substitui o servidor central.
 
-Eventos já armazenados no banco de dados não deverão ser perdidos após reinicializações normais da aplicação.
-
----
-
-## RNF05 — Integridade das contagens
-
-Um mesmo evento de sensor não deverá incrementar a contagem mais de uma vez.
+Caso o notebook esteja indisponível, os eventos deverão permanecer armazenados nos dispositivos até que o servidor volte a funcionar.
 
 ---
 
-## RNF06 — Rastreabilidade dos registros
+# Usabilidade
 
-Os registros armazenados deverão possuir informações suficientes para identificar quando ocorreram e a qual produção estão relacionados.
+## RNF21 — Simplicidade do totem
 
----
+O registro de um descarte deverá exigir poucas interações.
 
-## RNF07 — Separação das fontes de perda
+## RNF22 — Interface responsiva
 
-O sistema deverá manter claramente separadas:
+O totem deverá funcionar adequadamente em tablets e computadores.
 
-- perdas registradas manualmente durante a triagem;
-- perdas calculadas entre entrada e saída da E1.
+## RNF23 — Clareza do dashboard
 
-Essa separação deverá existir tanto no armazenamento quanto na apresentação das informações.
+O dashboard deverá permitir diferenciar claramente:
 
----
-
-## RNF08 — Facilidade de uso do totem
-
-A interface utilizada pela funcionária deverá exigir poucas interações para realizar um registro de descarte.
-
-As opções principais deverão ser facilmente identificáveis e adequadas ao uso repetitivo durante a operação.
-
----
-
-## RNF09 — Responsividade
-
-A interface do totem deverá funcionar adequadamente em telas de dispositivos como:
-
-- tablet;
-- notebook;
-- computador.
-
----
-
-## RNF10 — Clareza do dashboard
-
-Os principais indicadores deverão ser apresentados de maneira visualmente clara e permitir que o usuário diferencie facilmente:
-
-- produção em andamento;
-- produção finalizada;
 - entrada;
 - saída;
 - descartes da triagem;
-- perdas da E1.
+- diferença momentânea;
+- perdas E1;
+- canal utilizado pelos sensores.
 
----
+## RNF24 — Estado de comunicação visível
 
-## RNF11 — Não apresentar diferença momentânea como perda definitiva
-
-Durante uma produção ativa, a interface deverá deixar claro que a diferença entre entrada e saída é apenas momentânea.
-
-A classificação como perda da E1 deverá ocorrer somente após o encerramento da produção.
-
----
-
-## RNF12 — Modularidade
-
-Os componentes de hardware e software deverão possuir responsabilidades separadas.
-
-Exemplo:
-
-- ESP32: aquisição e transmissão;
-- backend: processamento;
-- banco: persistência;
-- totem: registro manual;
-- dashboard: visualização.
-
-Essa separação deverá permitir manutenção e evolução independentes dos componentes.
-
----
-
-## RNF13 — Extensibilidade
-
-A arquitetura deverá permitir futuras expansões sem exigir reconstrução completa da solução.
-
-Exemplos:
-
-- novos sensores;
-- outras esteiras;
-- novos indicadores;
-- outros dispositivos de registro;
-- novas visualizações.
-
----
-
-## RNF14 — Manutenibilidade
-
-O código deverá ser organizado em módulos e armazenado em um sistema de controle de versão Git.
-
----
-
-## RNF15 — Documentação
-
-Os principais componentes da solução deverão possuir documentação no repositório.
-
-A documentação deverá incluir, quando aplicável:
-
-- configuração;
-- instalação;
-- arquitetura;
-- hardware;
-- testes;
-- uso.
-
----
-
-## RNF16 — Identificação dos dispositivos
-
-Cada dispositivo utilizado na solução deverá possuir um identificador próprio.
-
-Exemplos:
+O usuário deverá conseguir identificar quando um dispositivo estiver:
 
 ```text
-sensor-entrada-e1
-sensor-saida-e1
+Wi-Fi
+LoRa
+Offline
 ```
 
 ---
 
-## RNF17 — Monitoramento de comunicação
+# Hardware
 
-Os dispositivos de sensoriamento deverão enviar informações suficientes para que o sistema determine se continuam conectados e operacionais.
+## RNF25 — Segurança elétrica
 
----
+Os componentes deverão respeitar os níveis elétricos suportados pelo ESP32.
 
-## RNF18 — Segurança elétrica
+## RNF26 — Proteção física
 
-A ligação entre os sensores e os ESP32 deverá respeitar os níveis de tensão suportados pelos componentes.
+Na instalação piloto, os circuitos deverão possuir proteção adequada e não deverão permanecer expostos em protoboards.
 
-Nenhum sinal acima do limite suportado pelos GPIOs do ESP32 deverá ser conectado diretamente ao microcontrolador.
+## RNF27 — Fixação
 
----
+Os sensores deverão permanecer fixos durante a operação para evitar alteração da calibração.
 
-## RNF19 — Proteção física
+## RNF28 — Validação do E18-D80NK
 
-Em uma instalação piloto na empresa, circuitos eletrônicos não deverão permanecer expostos em protoboards.
+O sensor deverá ser testado com diferentes produtos reais antes da instalação definitiva.
 
-Os componentes deverão ser instalados em invólucros ou estruturas adequadas ao ambiente de operação.
+Os testes deverão considerar:
 
----
+- cor;
+- textura;
+- posição;
+- velocidade;
+- distância.
 
-## RNF20 — Fixação dos sensores
+## RNF29 — Validação do LoRa
 
-Os sensores deverão possuir fixação capaz de manter sua posição e calibração durante a utilização.
+A comunicação LoRa deverá ser testada no ambiente real da empresa considerando:
 
----
-
-## RNF21 — Validação com produtos reais
-
-O E18-D80NK deverá ser testado utilizando amostras reais dos produtos da empresa antes da adoção definitiva.
-
-Os testes deverão contemplar variações relevantes, como:
-
-- cores;
-- acabamento;
-- posicionamento;
 - distância;
-- velocidade de passagem.
+- paredes;
+- equipamentos industriais;
+- interferências;
+- posição das antenas.
 
 ---
 
-## RNF22 — Precisão da contagem
+# Arquitetura
 
-A precisão mínima aceitável dos sensores deverá ser definida após os testes de bancada e a validação junto à empresa.
+## RNF30 — Modularidade
 
-Até essa validação, o projeto não deverá assumir uma taxa de precisão industrial sem evidências experimentais.
+Os principais componentes deverão possuir responsabilidades separadas:
 
----
+```text
+Sensores/ESP32 → aquisição
+MQTT/LoRa      → transporte
+Backend        → processamento
+Banco          → persistência
+Totem          → registro manual
+Dashboard      → visualização
+```
 
-## RNF23 — Recuperação de falhas
+## RNF31 — Extensibilidade
 
-Falhas de um componente deverão ser identificáveis sem serem confundidas automaticamente com ausência de produção.
+A arquitetura deverá permitir futuramente:
 
-Por exemplo, um sensor offline não deverá ser interpretado simplesmente como contagem igual a zero.
+- novos sensores;
+- outras esteiras;
+- novos gateways;
+- novas métricas;
+- outros dashboards.
 
----
+## RNF32 — Independência do dashboard
 
-## RNF24 — Comunicação padronizada
+A lógica principal da solução não deverá depender do Grafana.
 
-A comunicação entre ESP32 e servidor deverá utilizar um formato padronizado de mensagens.
-
-Cada evento deverá possuir campos previamente definidos para facilitar integração e manutenção.
-
----
-
-## RNF25 — Baixo custo
-
-A solução deverá priorizar componentes e tecnologias de custo compatível com um projeto piloto, evitando equipamentos industriais de alto valor quando uma alternativa mais econômica puder cumprir os requisitos validados.
-
----
-
-## RNF26 — Tecnologias abertas ou gratuitas
-
-Sempre que possível, deverão ser priorizadas ferramentas gratuitas ou de código aberto.
-
-A arquitetura inicialmente prevista utiliza:
-
-- Eclipse Mosquitto;
-- FastAPI;
-- PostgreSQL;
-- Grafana;
-- Git.
+O dashboard poderá ser substituído futuramente sem exigir alterações significativas no firmware.
 
 ---
 
-## RNF27 — Independência entre hardware e dashboard
+# Manutenção e desenvolvimento
 
-A lógica de cálculo e armazenamento não deverá depender diretamente da interface utilizada para visualização.
+## RNF33 — Versionamento
 
-Dessa forma, o Grafana poderá futuramente ser substituído por outro dashboard sem exigir alteração significativa no firmware dos sensores.
+O código deverá ser mantido em repositório Git.
+
+## RNF34 — Documentação
+
+Os componentes deverão possuir documentação no diretório `docs/`.
+
+## RNF35 — Testabilidade
+
+Cada componente deverá poder ser testado independentemente.
+
+Exemplos:
+
+- backend com eventos simulados;
+- LoRa sem sensores;
+- sensores sem dashboard;
+- dashboard com dados fictícios.
+
+## RNF36 — Logs
+
+O servidor deverá manter logs suficientes para auxiliar na investigação de falhas de comunicação e sincronização.
 
 ---
 
-## RNF28 — Histórico
+# Custos
 
-Os dados de produções encerradas deverão permanecer disponíveis para consultas posteriores, respeitando a política de retenção que vier a ser definida com a empresa.
+## RNF37 — Baixo custo
+
+A solução deverá priorizar componentes compatíveis com um piloto de baixo ou médio custo.
+
+## RNF38 — Tecnologias abertas
+
+Sempre que possível, deverão ser utilizadas ferramentas gratuitas ou de código aberto.
 
 ---
 
-## RNF29 — Consistência das unidades
+# Confiabilidade
 
-Toda contagem apresentada para a produção deverá utilizar a mesma unidade adotada pelo projeto.
+## RNF39 — Tolerância à queda de Wi-Fi
+
+Uma falha temporária no Wi-Fi não deverá resultar automaticamente em perda das contagens.
+
+## RNF40 — Tolerância à falha simultânea de comunicação
+
+Caso Wi-Fi e LoRa falhem ao mesmo tempo, os eventos deverão permanecer localmente até a recuperação de algum canal.
+
+## RNF41 — Não duplicação
+
+A recuperação de uma falha de comunicação não deverá gerar contagens duplicadas.
+
+## RNF42 — Consistência das unidades
+
+Toda a solução deverá utilizar a mesma unidade de contagem definida pelo projeto.
 
 Inicialmente:
 
@@ -281,36 +288,20 @@ Inicialmente:
 1 unidade = 1 par de solados
 ```
 
-Qualquer alteração futura nessa regra deverá ser documentada.
-
----
-
-## RNF30 — Testabilidade
-
-Os componentes deverão permitir testes independentes.
-
-Por exemplo:
-
-- backend utilizando eventos simulados;
-- dashboard utilizando dados fictícios;
-- ESP32 sendo testado sem o dashboard;
-- totem sendo testado através de uma API de desenvolvimento.
-
-Isso permitirá que diferentes integrantes da equipe desenvolvam suas partes em paralelo.
-
 ---
 
 # Resumo
 
-Os requisitos não funcionais podem ser agrupados em:
-
 | Categoria | Requisitos |
 |---|---|
-| Desempenho e operação | RNF01 a RNF05 |
-| Dados e consistência | RNF06, RNF07, RNF24, RNF28, RNF29 |
-| Usabilidade | RNF08 a RNF11 |
-| Arquitetura e manutenção | RNF12 a RNF17, RNF27, RNF30 |
-| Hardware | RNF18 a RNF23 |
-| Custos e tecnologias | RNF25, RNF26 |
-
-Os valores quantitativos ainda não definidos, principalmente os relacionados à precisão dos sensores, deverão ser estabelecidos com base nos testes experimentais realizados durante o desenvolvimento.
+| Desempenho | RNF01–RNF04 |
+| Disponibilidade | RNF05–RNF09 |
+| Integridade | RNF10–RNF14 |
+| Comunicação | RNF15–RNF18 |
+| Servidor | RNF19–RNF20 |
+| Usabilidade | RNF21–RNF24 |
+| Hardware | RNF25–RNF29 |
+| Arquitetura | RNF30–RNF32 |
+| Manutenção | RNF33–RNF36 |
+| Custos | RNF37–RNF38 |
+| Confiabilidade | RNF39–RNF42 |
