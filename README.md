@@ -1,4 +1,5 @@
 # Sistema de Monitoramento de Perdas da Esteira E1
+## RAFAEL ESTEVE AQUI
 
 Sistema desenvolvido para monitorar, em tempo real, a movimentação e as perdas de pares de solados durante o processo produtivo da esteira **E1**.
 
