@@ -12,10 +12,59 @@ import { Totem } from './pages/Totem';
 export function App() {
   const { pathname } = useLocation();
   useEffect(() => {
-    const names: Record<string, string> = { '/dashboard': 'Dashboard', '/producao': 'Produção', '/relatorios': 'Relatórios', '/dispositivos': 'Dispositivos', '/configuracoes': 'Configurações', '/totem': 'Totem' };
+    const names: Record<string, string> = {
+      '/dashboard': 'Dashboard',
+      '/producao': 'Produção',
+      '/relatorios': 'Relatórios',
+      '/dispositivos': 'Dispositivos',
+      '/configuracoes': 'Configurações',
+      '/totem': 'Totem',
+    };
     document.title = `${names[pathname] ?? 'Monitoramento E1'} | HG Industrial`;
     document.querySelector<HTMLElement>('main')?.focus();
   }, [pathname]);
-  const { needRefresh: [needRefresh, setNeedRefresh], updateServiceWorker } = useRegisterSW();
-  return <><Routes><Route element={<Layout/>}><Route index element={<Navigate to="/dashboard" replace/>}/><Route path="dashboard" element={<Dashboard/>}/><Route path="producao" element={<ProductionPage/>}/><Route path="relatorios" element={<Reports/>}/><Route path="dispositivos" element={<Devices/>}/><Route path="configuracoes" element={<Settings/>}/><Route path="*" element={<Empty title="Página não encontrada" description="Escolha um módulo no menu ou retorne ao Dashboard."><Link className="button primary" to="/dashboard">Voltar ao Dashboard</Link></Empty>}/></Route><Route path="totem" element={<Totem/>}/></Routes><Toast/>{needRefresh && <div className="update-banner" role="status"><p>Uma atualização está disponível. Termine o lançamento antes de atualizar.</p><button className="button primary" onClick={() => void updateServiceWorker(true)}>Atualizar</button><button className="button secondary" onClick={() => setNeedRefresh(false)}>Depois</button></div>}</>;
+  const {
+    needRefresh: [needRefresh, setNeedRefresh],
+    updateServiceWorker,
+  } = useRegisterSW();
+  return (
+    <>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="producao" element={<ProductionPage />} />
+          <Route path="relatorios" element={<Reports />} />
+          <Route path="dispositivos" element={<Devices />} />
+          <Route path="configuracoes" element={<Settings />} />
+          <Route
+            path="*"
+            element={
+              <Empty
+                title="Página não encontrada"
+                description="Escolha um módulo no menu ou retorne ao Dashboard."
+              >
+                <Link className="button primary" to="/dashboard">
+                  Voltar ao Dashboard
+                </Link>
+              </Empty>
+            }
+          />
+        </Route>
+        <Route path="totem" element={<Totem />} />
+      </Routes>
+      <Toast />
+      {needRefresh && (
+        <div className="update-banner" role="status">
+          <p>Uma atualização está disponível. Termine o lançamento antes de atualizar.</p>
+          <button className="button primary" onClick={() => void updateServiceWorker(true)}>
+            Atualizar
+          </button>
+          <button className="button secondary" onClick={() => setNeedRefresh(false)}>
+            Depois
+          </button>
+        </div>
+      )}
+    </>
+  );
 }

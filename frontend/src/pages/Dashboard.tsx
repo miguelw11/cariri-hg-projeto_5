@@ -1,23 +1,158 @@
 import { Link } from 'react-router-dom';
-import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, ChevronRight, Clock3, Layers, Radio, ScanLine, ShieldCheck } from 'lucide-react';
+import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, Layers, ScanLine } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
-import { Badge, Empty, Notice, PageHeading, Panel, Stat } from '../components/ui';
-import { FlowChart, ReasonChart } from '../components/Charts';
+import { Badge, Empty, PageHeading, Panel, Stat } from '../components/ui';
+import { FlowChart } from '../components/Charts';
 import { date, duration, metrics, number, percent, time } from '../utils/metrics';
 
 export function Dashboard() {
-  const { data, active, discards, devices } = useApp();
+  const { data, active, discards } = useApp();
   const production = active ?? data.productions[0];
-  if (!production) return <><PageHeading eyebrow="VISÃO GERAL" title="Dashboard" description="Acompanhe o fluxo da esteira E1."/><Empty title="Tudo pronto para começar" description="Inicie uma produção para acompanhar seus indicadores."><Link to="/producao" className="button primary">Ir para Produção<ArrowRight size={17}/></Link></Empty></>;
+
+  if (!production) {
+    return (
+      <>
+        <PageHeading eyebrow="ESTEIRA E1" title="Dashboard" description="Acompanhe a produção." />
+        <Empty
+          title="Nenhuma produção iniciada"
+          description="Inicie uma produção para acompanhar os números."
+        >
+          <Link to="/producao" className="button primary">
+            Iniciar produção
+            <ArrowRight size={17} />
+          </Link>
+        </Empty>
+      </>
+    );
+  }
+
   const m = metrics(production, discards);
   const closed = production.status === 'closed';
-  const reasons = data.reasons.map(r => ({ name: r.name, quantity: discards.filter(d => d.productionId === production.id && d.reasonId === r.id && d.status !== 'voided').reduce((a, d) => a + d.quantity, 0) })).filter(r => r.quantity > 0);
-  return <>
-    <PageHeading eyebrow="VISÃO GERAL DA OPERAÇÃO" title="Cada par conta." description="Uma visão clara da produção, da triagem ao fim da esteira." action={<Link to="/producao" className="button secondary">Gerenciar produção<ArrowRight size={17}/></Link>}/>
-    <section className="production-banner"><div className="banner-main"><div className="banner-label"><span className="live-dot"/>{closed ? 'ÚLTIMA PRODUÇÃO ENCERRADA' : 'PRODUÇÃO ATUAL'}<span className="banner-divider"/>ESTEIRA E1</div><h2>{production.name}</h2><p>{production.id} <span>·</span> {data.shifts.find(s => s.id === production.shiftId)?.name} <span>·</span> Início às {time(production.startedAt)}</p><div className="banner-tags"><Badge tone={closed ? 'neutral' : production.status === 'closing' ? 'warning' : 'success'}>{closed ? 'Encerrada' : production.status === 'closing' ? 'Em encerramento' : 'Em produção'}</Badge><span className="banner-date">{date(production.startedAt)}</span></div></div><div className="banner-illustration" aria-hidden="true"><div className="conveyor-head"><ScanLine size={26}/><span>ENTRADA</span></div><div className="conveyor-track"><i/><i/><i/><i/><i/></div><div className="conveyor-end"><ShieldCheck size={27}/><span>SAÍDA</span></div></div></section>
-    <div className="stats-grid"><Stat label="Entrada da E1" value={number(production.input)} note="Pares enviados à esteira" icon={<ArrowDownToLine size={20}/>} accent/><Stat label="Saída da E1" value={number(production.output)} note="Pares que concluíram a E1" icon={<ArrowUpFromLine size={20}/>}/><Stat label={closed ? 'Perdas consolidadas E1' : 'Diferença momentânea'} value={number(closed ? m.loss! : m.difference)} note={closed ? 'Após confirmação de esteira vazia' : 'Ainda não representa perda definitiva'} icon={<Layers size={20}/>}/><Stat label="Descartes da triagem" value={number(m.rejected)} note="Indicador separado da esteira" icon={<ScanLine size={20}/>}/></div>
-    <div className="dashboard-grid"><Panel title="Fluxo de produção" subtitle="Entradas e saídas por hora · dados demonstrativos" action={<Badge tone="blue">Pares de solados</Badge>}><FlowChart rows={[...production.hourly].sort((a,b) => a.hour - b.hour)}/><div className="chart-footnote"><span className="status-dot"/>A contagem definitiva de perdas é feita por produção encerrada.</div></Panel><Panel title="Descartes por motivo" subtitle="Triagem antes da entrada na E1"><ReasonChart rows={reasons}/><div className="panel-total"><span>Total na triagem</span><strong>{number(m.rejected)} <small>pares</small></strong></div><Link to="/totem" className="panel-link">Registrar um descarte<ArrowRight size={16}/></Link></Panel></div>
-    <div className="dashboard-grid lower-grid"><Panel title="Ritmo da operação" subtitle="Indicadores da produção selecionada"><div className="rhythm-grid"><div className="yield-block"><div className="yield-ring" style={{ '--yield': `${m.yield ?? 0}%` } as React.CSSProperties}><strong>{percent(m.yield)}</strong></div><h3>Aproveitamento E1</h3><p>{closed ? 'Resultado consolidado' : 'Parcial · produção em andamento'}</p></div><div className="rhythm-metrics"><div><span><Clock3 size={17}/>Tempo ativo</span><strong>{duration(m.activeSeconds)}</strong></div><div><span>Tempo ocioso</span><strong>{duration(m.idleSeconds)}</strong></div><div><span>Períodos de ociosidade</span><strong>{m.idleCount}</strong></div><div><span>Percentual de ociosidade</span><strong>{percent(m.idlePercent)}</strong></div>{closed && <div><span>Perdas observadas</span><strong>{number(m.observedLoss!)}</strong></div>}</div></div></Panel><Panel title="Conectividade" subtitle="Estados de exemplo dos dispositivos" action={<Radio size={19} className="muted"/>}><div className="connection-list">{devices.map(device => <div key={device.id}><span className={`device-dot ${device.state}`}/><div><strong>{device.name}</strong><small>{device.channel === 'USB' ? 'Conexão direta ao servidor' : device.channel === 'LoRa' ? 'Canal de contingência' : 'Canal principal'}</small></div><Badge tone={device.state === 'contingency' ? 'warning' : 'success'}>{device.channel}</Badge></div>)}</div><Link to="/dispositivos" className="panel-link">Ver dispositivos<ChevronRight size={16}/></Link></Panel></div>
-    <Notice>As métricas e os estados acima são demonstrativos. A atualização com sensores reais será conectada ao backend.</Notice>
-  </>;
+  const reasons = data.reasons
+    .map((r) => ({
+      id: r.id,
+      name: r.name,
+      quantity: discards
+        .filter(
+          (d) => d.productionId === production.id && d.reasonId === r.id && d.status !== 'voided',
+        )
+        .reduce((a, d) => a + d.quantity, 0),
+    }))
+    .filter((r) => r.quantity > 0);
+
+  return (
+    <>
+      <PageHeading
+        eyebrow="ESTEIRA E1"
+        title="Dashboard"
+        description="Acompanhe a produção."
+        action={
+          <Link to="/producao" className="button secondary">
+            Ver produção
+            <ArrowRight size={17} />
+          </Link>
+        }
+      />
+      <section className="current-production" aria-label="Produção selecionada">
+        <div>
+          <span>{closed ? 'Última produção' : 'Produção atual'}</span>
+          <h2>{production.name}</h2>
+          <p>
+            {date(production.startedAt)} ·{' '}
+            {data.shifts.find((s) => s.id === production.shiftId)?.name} · Início{' '}
+            {time(production.startedAt)}
+          </p>
+        </div>
+        <Badge tone={closed ? 'neutral' : production.status === 'closing' ? 'warning' : 'success'}>
+          {closed ? 'Encerrada' : production.status === 'closing' ? 'Encerrando' : 'Em produção'}
+        </Badge>
+      </section>
+      <div className="stats-grid dashboard-stats">
+        <Stat
+          label="Entrada"
+          value={number(production.input)}
+          note="Pares que entraram na E1"
+          icon={<ArrowDownToLine size={20} />}
+          accent
+        />
+        <Stat
+          label="Saída"
+          value={number(production.output)}
+          note="Pares que saíram da E1"
+          icon={<ArrowUpFromLine size={20} />}
+        />
+        <Stat
+          label={closed ? 'Perdas na E1' : 'Diferença atual'}
+          value={number(closed ? m.loss! : m.difference)}
+          note={closed ? 'Após o encerramento' : 'Ainda não é perda definitiva'}
+          icon={<Layers size={20} />}
+        />
+        <Stat
+          label="Descartes"
+          value={number(m.rejected)}
+          note="Pares descartados na triagem"
+          icon={<ScanLine size={20} />}
+        />
+      </div>
+      {!closed && (
+        <p className="dashboard-explanation">
+          A diferença entre entrada e saída só será considerada perda depois de encerrar a produção
+          e confirmar que a esteira está vazia.
+        </p>
+      )}
+      <div className="dashboard-grid dashboard-simple">
+        <Panel title="Produção por hora" subtitle="Entrada e saída">
+          <FlowChart rows={[...production.hourly].sort((a, b) => a.hour - b.hour)} />
+        </Panel>
+        <Panel title="Resumo">
+          <dl className="simple-summary">
+            <div>
+              <dt>Aproveitamento{!closed && <small>Parcial</small>}</dt>
+              <dd>{percent(m.yield)}</dd>
+            </div>
+            <div>
+              <dt>Tempo em atividade</dt>
+              <dd>{duration(m.activeSeconds)}</dd>
+            </div>
+            <div>
+              <dt>Tempo parado</dt>
+              <dd>{duration(m.idleSeconds)}</dd>
+            </div>
+            <div>
+              <dt>Paradas</dt>
+              <dd>{m.idleCount}</dd>
+            </div>
+          </dl>
+          <Link className="panel-link" to="/relatorios">
+            Ver relatórios
+            <ArrowRight size={16} />
+          </Link>
+        </Panel>
+      </div>
+      <Panel
+        title="Descartes da triagem"
+        action={
+          <Link className="button secondary" to="/totem">
+            Registrar descarte
+            <ArrowRight size={16} />
+          </Link>
+        }
+      >
+        {reasons.length ? (
+          <ul className="discard-summary">
+            {reasons.map((r) => (
+              <li key={r.id}>
+                <span>{r.name}</span>
+                <strong>
+                  {number(r.quantity)} <small>pares</small>
+                </strong>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">Nenhum descarte nesta produção.</p>
+        )}
+      </Panel>
+    </>
+  );
 }

@@ -1,6 +1,9 @@
 import type { Discard } from '../types';
 import { changePendingDiscard, readDiscards } from './storage';
-export interface Receipt { eventId: string; accepted: boolean }
+export interface Receipt {
+  eventId: string;
+  accepted: boolean;
+}
 export type SendDiscard = (record: Discard) => Promise<Receipt>;
 let running = false;
 // Pass a backend adapter ONLY after agreeing on explicit idempotent acknowledgements.
@@ -10,13 +13,16 @@ export async function syncPending(send: SendDiscard): Promise<{ synced: number; 
   running = true;
   let synced = 0;
   try {
-    const records = (await readDiscards()).filter(r => r.status === 'pending');
+    const records = (await readDiscards()).filter((r) => r.status === 'pending');
     for (const record of records) {
       const receipt = await send(record);
-      if (!receipt.accepted || receipt.eventId !== record.eventId) throw new Error('Servidor não confirmou o registro esperado.');
+      if (!receipt.accepted || receipt.eventId !== record.eventId)
+        throw new Error('Servidor não confirmou o registro esperado.');
       await changePendingDiscard(record.eventId, 'synced');
       synced++;
     }
-    return { synced, pending: (await readDiscards()).filter(r => r.status === 'pending').length };
-  } finally { running = false; }
+    return { synced, pending: (await readDiscards()).filter((r) => r.status === 'pending').length };
+  } finally {
+    running = false;
+  }
 }

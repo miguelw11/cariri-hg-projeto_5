@@ -11,7 +11,7 @@ acionado. A base HTTP e o cliente WebSocket estão disponíveis para adaptação
 - Controlar a produção ativa, transições e concorrência de início/encerramento.
 - Exigir a confirmação de esteira vazia antes de consolidar perdas da E1.
 - Deduplicar eventos de sensores e descartes por identificador.
-- Detectar ociosidade com o parâmetro configurado e persistir intervalos.
+- Detectar ociosidade com o preset operacional de 120 segundos e persistir intervalos.
 - Calcular métricas e consultar o histórico central; o frontend apenas apresenta.
 - Aplicar permissões, validação, auditoria e política de correção de registros.
 - Informar o estado real de nós, gateway, canais e eventos pendentes.
@@ -27,12 +27,19 @@ contrato definitivo de FastAPI. Validar com a equipe responsável:
 | Descartes | UUID estável, produção, motivo, quantidade, horário original, resposta de recebimento idempotente, política de correção/cancelamento. |
 | Relatórios | Semântica das datas, fuso, turnos (inclusive noturnos), horas, agrupamentos, paginação e métricas definitivas por produção completa. |
 | Dispositivos | Status, canal, último evento/heartbeat, número de pendências e limites de expiração. |
-| Configurações | Motivos com estado ativo, turnos, limite de ociosidade, validações e permissões. |
+| Configurações | Motivos com estado ativo/excluído, turnos, preset de ociosidade, validações e permissões. |
 | WebSocket | Formato e versão das mensagens, tipo do evento, sequência/revisão, retomada/reconsulta após reconexão. |
 
 Definir autenticação, CORS e autorização por rota antes de uso operacional. URLs
 devem ser locais à infraestrutura quando a operação exigir independência da internet.
 No acesso HTTPS, a API e o WebSocket também precisam de HTTPS/WSS compatíveis.
+
+A ociosidade não é editável por funcionários. O backend deve adotar o mesmo preset
+de **120 segundos** e não expor um controle de edição pela aplicação. Esse valor
+precisará de validação no piloto. A exclusão de motivos deve preservar o nome/ID
+para lançamentos históricos, impedindo novos registros com o motivo excluído.
+Na demonstração, `deletedAt` implementa essa exclusão: motivos excluídos saem do
+cadastro e do Totem, mas continuam disponíveis nas consultas históricas.
 
 ## HTTP e tempo real
 
@@ -99,7 +106,11 @@ precisa ser acordado para ciclos que atravessem turnos.
 - Solicitar encerramento: confirmação deve ficar bloqueada sem marcar esteira vazia.
 - Iniciar novo ciclo: contagens começam zeradas, aproveitamento aparece como “—”.
 - Registrar e desfazer descarte, recarregar e verificar persistência e indicadores.
-- Desativar motivo: impedir novos registros, preservar os lançamentos anteriores.
+- Desativar ou excluir motivo: impedir novos registros, preservar nomes e totais
+  dos lançamentos anteriores. Testar também após recarregar a aplicação.
+- Verificar que a ociosidade é apenas informativa, sem campo para editar o preset.
+- No Totem, selecionar motivo e quantidade e registrar em uma única ação; verificar
+  que múltiplos cliques durante a gravação não geram lançamentos repetidos.
 - Validar filtros sem resultados e evitar perda definitiva derivada de fluxo horário.
 - Servir build em HTTPS/localhost, instalar PWA, carregar recursos, fechar/reabrir
   offline, registrar e recarregar. Aguardar controle do Service Worker antes do teste.
