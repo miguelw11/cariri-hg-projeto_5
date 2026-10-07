@@ -1,5 +1,100 @@
 # Frontend
 
+## Versão implementada — demonstração interativa
+
+O frontend já possui as seis páginas em **React + TypeScript + Vite**. A identidade
+utiliza a logo oficial do repositório, azul `#0D5683`, prata `#BFC4C8` e fundo
+`#F5F7FA`, componentes compartilhados, layouts para computador/tablet/celular,
+transições discretas e suporte a movimento reduzido. Ícones e recursos são locais:
+a operação não depende de fontes ou scripts de CDN.
+
+### Executar
+
+Requer Node.js 20.19+ ou 22.12+ (validado com Node.js 24) e npm.
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Abra `http://localhost:5173`. O Vite mostra a porta efetiva se 5173 estiver ocupada.
+
+```bash
+npm test         # regras de métricas, fila, exclusão de motivos e telas
+npm run build   # checagem TypeScript + build + geração da PWA
+npm run preview # servir o build localmente
+npm run format  # organizar indentação de src/ e vite.config.ts
+```
+
+### O que funciona nesta etapa
+
+| Rota | Comportamento |
+|---|---|
+| `/dashboard` | Entrada, saída, diferença/perdas e descartes em destaque; fluxo por hora e resumo de atividade. |
+| `/producao` | Iniciar ciclo, simular contagem, solicitar encerramento, confirmar esteira vazia, consultar histórico e detalhes. |
+| `/relatorios` | Filtrar ciclos encerrados por dia/intervalo, turno e produção; filtrar eventos e descartes por hora e descartes por motivo. |
+| `/dispositivos` | Estados estáticos exemplificando Wi-Fi, LoRa e gateway USB, última comunicação e pendências. |
+| `/configuracoes` | Cadastrar/editar/ativar/desativar/excluir motivos; cadastrar/editar turnos. Ociosidade com preset fixo. |
+| `/totem` | Selecionar motivo, informar quantidade e registrar diretamente em IndexedDB. Histórico recolhido com opção de desfazer. |
+
+Produções, motivos, turnos e exemplos iniciais ficam em `localStorage`.
+Novos descartes ficam em **IndexedDB**, com UUID, produção, motivo, quantidade e
+horário. Após recarregar, eles continuam disponíveis. Alterações ficam no navegador,
+não são compartilhadas entre dispositivos. Descartes locais refletem nos indicadores
+da mesma aplicação; as sementes de demonstração são identificadas como exemplos.
+
+**Esta versão é demonstrativa:** não há API, sensores, autenticação, sincronização
+automática real ou processamento real de ociosidade. Informar URLs no `.env` não
+transforma a demonstração em aplicação conectada. Registros novos não são marcados
+como sincronizados por estarem online. A ociosidade tem limite predefinido de
+**120 segundos (2 minutos)**, sem controle de edição na interface. Valores editados
+na versão anterior são substituídos pelo preset ao carregar, sem apagar registros.
+A detecção definitiva será feita pelo backend. Use um único dispositivo/aba para
+avaliar os fluxos de produção: controle concorrente definitivo dependerá do servidor.
+
+### PWA e funcionamento local
+
+O build gera manifest, ícones com o símbolo oficial HG e Service Worker com cache dos recursos
+da interface. `/totem` é a rota inicial quando instalado. A instalação e o uso de
+Service Worker requerem **HTTPS ou localhost**. Acessar a aplicação via HTTP pelo
+IP de um notebook não garante PWA no tablet; a implantação na rede local precisará
+de HTTPS confiável. Nenhum conteúdo de API é armazenado em cache como confirmação
+de um lançamento.
+
+Abra o build online ao menos uma vez e aguarde o Service Worker assumir o controle
+antes de avaliar a navegação offline. O modo de desenvolvimento não habilita o
+Service Worker. Atualizações oferecem um aviso para que a operadora conclua o
+lançamento antes de recarregar. Se IndexedDB não estiver disponível, o Totem bloqueia
+novos registros e informa o erro. Limpar os dados do site apaga registros locais:
+esta etapa não oferece backup no servidor.
+
+### Organização e decisões
+
+- `src/components/`: layout, logo oficial, indicadores, gráficos, modal e avisos.
+- `src/pages/`: os seis módulos, cada um com suas interações.
+- `src/contexts/AppContext.tsx`: estado e operações da demonstração.
+- `src/services/demo.ts`: exemplos coerentes com os totais e agrupamentos horários.
+- `src/services/`: base HTTP/WebSocket, IndexedDB e sincronização por confirmação.
+- `src/utils/metrics.ts`: métricas para apresentação, com distinção entre diferença e perda consolidada.
+- `src/styles.css`: cores, componentes, pontos de adaptação e efeitos de 180–200 ms.
+
+Bibliotecas escolhidas: React Router para rotas, Lucide para ícones e
+vite-plugin-pwa/Workbox para geração do cache da interface. Os gráficos são
+componentes próprios leves, sem uma biblioteca adicional. Datas são apresentadas
+em português, com fuso `America/Sao_Paulo`; instantes novos são armazenados em ISO.
+
+As rotas usam History API. Ao servir `dist/` fora do Vite, configure retorno para
+`index.html` nas rotas da aplicação, preservando os recursos estáticos e as rotas
+da API. A aplicação está configurada para a raiz do domínio.
+
+Leia **`EDICAO.md`** para saber exatamente quais arquivos alterar manualmente.
+Leia `INTEGRACAO.md` para contratos pendentes, conexão com o backend e verificações
+manuais recomendadas. A documentação original de planejamento está preservada abaixo;
+a decisão atual substitui a edição de ociosidade prevista anteriormente.
+
+---
+
 Aplicação web integrada do Sistema de Monitoramento de Perdas da Esteira E1.
 
 O frontend será responsável pelas interfaces de monitoramento, operação, relatórios, dispositivos, configurações e Totem.
@@ -114,7 +209,7 @@ Deverá permitir configurar, conforme permissões futuras:
 
 - motivos de descarte;
 - turnos;
-- limite para detecção de ociosidade;
+- limite predefinido de ociosidade, apenas para consulta;
 - parâmetros operacionais que forem definidos posteriormente.
 
 ### Totem
@@ -130,7 +225,7 @@ Selecionar motivo
       ↓
 Informar quantidade
       ↓
-Confirmar
+Registrar descarte
 ```
 
 O Totem não deverá exibir informações administrativas desnecessárias.

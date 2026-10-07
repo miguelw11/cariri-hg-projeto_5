@@ -1,0 +1,361 @@
+import { useState, type FormEvent } from 'react';
+import {
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Check,
+  CircleStop,
+  Factory,
+  FlaskConical,
+  Layers,
+  Play,
+  Plus,
+} from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
+import {
+  Badge,
+  Empty,
+  Modal,
+  Notice,
+  PageHeading,
+  Panel,
+  Stat,
+  safeAction,
+} from '../components/ui';
+import { date, duration, metrics, number, percent, time } from '../utils/metrics';
+
+export function ProductionPage() {
+  const { data, active, discards, start, requestClose, cancelClose, close, simulate, notify } =
+    useApp();
+  const [newOpen, setNewOpen] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [shift, setShift] = useState(data.shifts[0]?.id ?? '');
+  const m = active ? metrics(active, discards) : null;
+  const detail = data.productions.find((p) => p.id === detailId);
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    safeAction(() => {
+      start(name, shift);
+      setNewOpen(false);
+      setName('');
+    }, notify);
+  };
+  return (
+    <>
+      <PageHeading
+        eyebrow="OPERAÇÃO DA ESTEIRA"
+        title="Produção"
+        description="Inicie, acompanhe e encerre cada ciclo com segurança."
+        action={
+          <button
+            className="button primary"
+            disabled={!!active || !data.shifts.length}
+            onClick={() => setNewOpen(true)}
+          >
+            <Plus size={18} />
+            Nova produção
+          </button>
+        }
+      />
+      {active && m ? (
+        <>
+          <Panel
+            title="Produção em andamento"
+            subtitle={`${active.id} · ${active.name}`}
+            action={
+              <Badge tone={active.status === 'closing' ? 'warning' : 'success'}>
+                {active.status === 'closing' ? 'Aguardando confirmação' : 'Em produção'}
+              </Badge>
+            }
+          >
+            <div className="production-meta">
+              <span>
+                Iniciada em{' '}
+                <strong>
+                  {date(active.startedAt)} às {time(active.startedAt)}
+                </strong>
+              </span>
+              <span>
+                Turno <strong>{data.shifts.find((s) => s.id === active.shiftId)?.name}</strong>
+              </span>
+              <span>
+                Duração <strong>{duration(m.elapsedSeconds)}</strong>
+              </span>
+            </div>
+            <div className="stats-grid compact-stats">
+              <Stat
+                label="Entrada"
+                value={number(active.input)}
+                note="Pares"
+                icon={<ArrowDownToLine size={19} />}
+              />
+              <Stat
+                label="Saída"
+                value={number(active.output)}
+                note="Pares"
+                icon={<ArrowUpFromLine size={19} />}
+              />
+              <Stat
+                label="Diferença momentânea"
+                value={number(m.difference)}
+                note="Não consolidada como perda"
+                icon={<Layers size={19} />}
+              />
+              <Stat
+                label="Descartes"
+                value={number(m.rejected)}
+                note="Antes da esteira E1"
+                icon={<Factory size={19} />}
+              />
+            </div>
+            <div className="production-actions">
+              <button
+                className="button secondary"
+                disabled={active.status !== 'active'}
+                onClick={() => safeAction(simulate, notify)}
+              >
+                <FlaskConical size={17} />
+                Simular contagem
+              </button>
+              <button
+                className="button danger"
+                disabled={active.status === 'closing'}
+                onClick={() => {
+                  setConfirmed(false);
+                  safeAction(requestClose, notify);
+                }}
+              >
+                <CircleStop size={17} />
+                Solicitar encerramento
+              </button>
+            </div>
+          </Panel>
+          {active.status === 'closing' && (
+            <Panel
+              title="Confirme o fim do processamento"
+              subtitle="A diferença só será consolidada após esta confirmação."
+              className="closing-panel"
+            >
+              <p>
+                Verifique fisicamente se todos os produtos saíram da esteira E1. Diferenças
+                pendentes serão contabilizadas como perdas no resultado final.
+              </p>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={confirmed}
+                  onChange={(e) => setConfirmed(e.target.checked)}
+                />
+                Confirmo que a esteira E1 está vazia.
+              </label>
+              <div className="form-actions">
+                <button
+                  className="button secondary"
+                  onClick={() => safeAction(cancelClose, notify)}
+                >
+                  Continuar produção
+                </button>
+                <button
+                  className="button primary"
+                  disabled={!confirmed}
+                  onClick={() =>
+                    safeAction(() => {
+                      close();
+                      setConfirmed(false);
+                    }, notify)
+                  }
+                >
+                  <Check size={17} />
+                  Confirmar encerramento
+                </button>
+              </div>
+            </Panel>
+          )}
+        </>
+      ) : (
+        <Empty
+          title="Nenhuma produção ativa"
+          description="Inicie um ciclo para associar contagens e descartes à produção."
+        >
+          <button
+            className="button primary"
+            disabled={!data.shifts.length}
+            onClick={() => setNewOpen(true)}
+          >
+            <Play size={17} />
+            Iniciar produção
+          </button>
+        </Empty>
+      )}
+      <Panel title="Histórico de produções" subtitle="Resultados consolidados por ciclo">
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Produção</th>
+                <th>Início</th>
+                <th>Entrada</th>
+                <th>Saída</th>
+                <th>Perdas E1</th>
+                <th>Status</th>
+                <th>
+                  <span className="sr-only">Ações</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.productions.map((p) => (
+                <tr key={p.id}>
+                  <td>
+                    <strong>{p.name}</strong>
+                    <small>{p.id}</small>
+                  </td>
+                  <td>
+                    {date(p.startedAt)}
+                    <small>{time(p.startedAt)}</small>
+                  </td>
+                  <td>{number(p.input)}</td>
+                  <td>{number(p.output)}</td>
+                  <td>{p.status === 'closed' ? number(p.input - p.output) : '—'}</td>
+                  <td>
+                    <Badge
+                      tone={
+                        p.status === 'closed'
+                          ? 'neutral'
+                          : p.status === 'closing'
+                            ? 'warning'
+                            : 'success'
+                      }
+                    >
+                      {p.status === 'closed'
+                        ? 'Encerrada'
+                        : p.status === 'closing'
+                          ? 'Encerrando'
+                          : 'Em produção'}
+                    </Badge>
+                  </td>
+                  <td>
+                    <button className="button table-button" onClick={() => setDetailId(p.id)}>
+                      Detalhes
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+      <Notice>
+        “Simular contagem” adiciona somente dados de exemplo. As regras definitivas de produção
+        serão controladas pelo backend.
+      </Notice>
+      {newOpen && (
+        <Modal title="Iniciar nova produção" onClose={() => setNewOpen(false)}>
+          <form onSubmit={submit}>
+            <p className="muted">
+              Os próximos registros serão associados a este ciclo demonstrativo.
+            </p>
+            <label className="field">
+              Nome da produção
+              <input
+                autoFocus
+                required
+                maxLength={80}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ex.: Produção E1 · lote 004"
+              />
+            </label>
+            <label className="field">
+              Turno
+              <select value={shift} required onChange={(e) => setShift(e.target.value)}>
+                {data.shifts.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} · {s.start}–{s.end}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="form-actions">
+              <button type="button" className="button secondary" onClick={() => setNewOpen(false)}>
+                Cancelar
+              </button>
+              <button className="button primary" type="submit">
+                <Play size={16} />
+                Iniciar produção
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {detail && (
+        <Modal title="Resultado da produção" onClose={() => setDetailId(null)}>
+          <ProductionSummary production={detail} discards={discards} />
+        </Modal>
+      )}
+    </>
+  );
+}
+export function ProductionSummary({
+  production: p,
+  discards,
+}: {
+  production: import('../types').Production;
+  discards: import('../types').Discard[];
+}) {
+  const m = metrics(p, discards);
+  return (
+    <>
+      <p className="muted">
+        {p.name} · {p.id}
+      </p>
+      <dl className="summary-list">
+        <div>
+          <dt>Entrada / saída</dt>
+          <dd>
+            {number(p.input)} / {number(p.output)} pares
+          </dd>
+        </div>
+        <div>
+          <dt>{p.status === 'closed' ? 'Perdas E1' : 'Diferença momentânea'}</dt>
+          <dd>{number(m.loss ?? m.difference)} pares</dd>
+        </div>
+        <div>
+          <dt>Descartes da triagem</dt>
+          <dd>{number(m.rejected)} pares</dd>
+        </div>
+        <div>
+          <dt>Perdas observadas</dt>
+          <dd>
+            {m.observedLoss === null ? 'Ainda não consolidadas' : `${number(m.observedLoss)} pares`}
+          </dd>
+        </div>
+        <div>
+          <dt>Aproveitamento {p.status === 'closed' ? '' : '(parcial)'}</dt>
+          <dd>{percent(m.yield)}</dd>
+        </div>
+        <div>
+          <dt>Tempo ativo</dt>
+          <dd>{duration(m.activeSeconds)}</dd>
+        </div>
+        <div>
+          <dt>Tempo ocioso</dt>
+          <dd>
+            {duration(m.idleSeconds)} · {percent(m.idlePercent)}
+          </dd>
+        </div>
+        <div>
+          <dt>Períodos / maior ociosidade</dt>
+          <dd>
+            {m.idleCount} / {duration(m.longestIdleSeconds)}
+          </dd>
+        </div>
+      </dl>
+      <Notice>
+        Perdas observadas somam triagem e perdas da E1; não representam a perda de um lote original
+        conhecido.
+      </Notice>
+    </>
+  );
+}
