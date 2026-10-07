@@ -16,7 +16,7 @@ O sistema deverá permitir encerrar uma produção após a confirmação de que 
 
 ## RF03 — Associar informações à produção ativa
 
-Eventos dos sensores e registros realizados no totem deverão ser associados à produção ativa.
+Eventos dos sensores e registros realizados no Totem deverão ser associados à produção ativa.
 
 ---
 
@@ -36,9 +36,7 @@ Um mesmo produto não deverá gerar vários eventos enquanto permanecer diante d
 
 ## RF07 — Gerar identificador único
 
-Cada evento deverá possuir um `event_id` único.
-
-O identificador deverá permanecer o mesmo independentemente do meio utilizado para a transmissão.
+Cada evento deverá possuir um `event_id` único, independentemente do canal utilizado para sua transmissão.
 
 ---
 
@@ -46,15 +44,15 @@ O identificador deverá permanecer o mesmo independentemente do meio utilizado p
 
 ## RF08 — Utilizar Wi-Fi como canal principal
 
-Em condições normais, os eventos deverão ser enviados pelo ESP32 utilizando Wi-Fi.
+Em condições normais, os eventos deverão ser enviados através de Wi-Fi.
 
 ## RF09 — Transmitir eventos por MQTT
 
-Os eventos deverão ser publicados para o servidor através do protocolo MQTT.
+Os eventos dos sensores deverão ser publicados para o servidor através de MQTT.
 
 ## RF10 — Confirmar recebimento
 
-O sistema deverá ser capaz de determinar se o evento foi recebido pelo servidor.
+O sistema deverá possuir mecanismo para determinar se o evento foi recebido pelo servidor.
 
 ---
 
@@ -62,43 +60,43 @@ O sistema deverá ser capaz de determinar se o evento foi recebido pelo servidor
 
 ## RF11 — Detectar indisponibilidade do canal principal
 
-O ESP32 deverá detectar quando não conseguir transmitir normalmente os dados utilizando Wi-Fi/MQTT.
+Os nós deverão identificar quando não conseguirem transmitir normalmente através de Wi-Fi/MQTT.
 
-## RF12 — Ativar fallback LoRa
+## RF12 — Utilizar LoRa como contingência
 
-Quando o canal principal estiver indisponível, o dispositivo deverá tentar enviar os eventos através da comunicação LoRa.
+Quando o canal principal estiver indisponível, os eventos deverão ser transmitidos através de LoRa.
 
-## RF13 — Receber dados via LoRa
+## RF13 — Receber eventos pelo gateway
 
-A solução deverá possuir um gateway/receptor LoRa capaz de receber as mensagens enviadas pelos sensores.
+O gateway ESP32-S3 deverá receber os eventos LoRa transmitidos pelos pontos de sensoriamento.
 
-## RF14 — Encaminhar evento LoRa ao backend
+## RF14 — Encaminhar dados pela serial
 
-Eventos recebidos pelo gateway deverão ser encaminhados ao backend do sistema.
+O gateway deverá enviar os eventos recebidos ao servidor principal através da conexão USB/Serial.
 
 ## RF15 — Retornar automaticamente ao Wi-Fi
 
-Quando o canal principal voltar a funcionar, o ESP32 deverá retornar ao uso prioritário de Wi-Fi/MQTT.
+Quando o canal principal estiver novamente disponível, os dispositivos deverão voltar a utilizá-lo prioritariamente.
 
-## RF16 — Registrar utilização do fallback
+## RF16 — Registrar canal utilizado
 
-O sistema deverá registrar quando um evento tiver sido enviado utilizando LoRa.
+O sistema deverá permitir identificar se o evento foi recebido através de Wi-Fi/MQTT, LoRa ou sincronização local.
 
 ---
 
-# Persistência local
+# Armazenamento local
 
 ## RF17 — Armazenar eventos pendentes
 
-Caso Wi-Fi e LoRa estejam indisponíveis, o ESP32 deverá manter localmente os eventos ainda não entregues.
+Caso Wi-Fi e LoRa estejam indisponíveis, os eventos deverão ser armazenados localmente.
 
 ## RF18 — Sincronizar eventos pendentes
 
-Quando algum canal de comunicação voltar a ficar disponível, os eventos pendentes deverão ser transmitidos.
+Quando um canal voltar a ficar disponível, os dados ainda não enviados deverão ser sincronizados.
 
-## RF19 — Remover evento confirmado
+## RF19 — Remover somente eventos confirmados
 
-Um evento deverá ser removido da fila local somente após a confirmação de que foi recebido pelo servidor.
+Eventos locais somente deverão ser marcados como sincronizados após confirmação do servidor.
 
 ---
 
@@ -106,27 +104,27 @@ Um evento deverá ser removido da fila local somente após a confirmação de qu
 
 ## RF20 — Identificar eventos já processados
 
-O backend deverá verificar o `event_id` antes de registrar uma nova contagem.
+O backend deverá verificar o `event_id` antes de processar um evento.
 
-## RF21 — Evitar contagem duplicada entre Wi-Fi e LoRa
+## RF21 — Evitar duplicidade entre canais
 
-Caso o mesmo evento seja recebido pelos dois canais, ele deverá ser contabilizado apenas uma vez.
-
-## RF22 — Evitar duplicidade durante sincronização
-
-Eventos enviados novamente após recuperação de comunicação não deverão gerar novas contagens caso já tenham sido processados.
+Um mesmo evento recebido por Wi-Fi, LoRa ou sincronização posterior deverá ser contabilizado apenas uma vez.
 
 ---
 
 # Totem
 
+## RF22 — Disponibilizar módulo Totem
+
+A aplicação web deverá possuir uma página específica destinada ao registro de descartes.
+
 ## RF23 — Registrar descarte
 
-O sistema deverá permitir registrar os descartes realizados durante a triagem.
+A funcionária deverá poder registrar uma ocorrência de descarte.
 
 ## RF24 — Selecionar motivo
 
-A funcionária deverá selecionar um motivo previamente cadastrado.
+O sistema deverá permitir selecionar um motivo previamente cadastrado.
 
 ## RF25 — Informar quantidade
 
@@ -134,7 +132,7 @@ O sistema deverá permitir informar a quantidade descartada.
 
 ## RF26 — Registrar data e horário
 
-Data e horário deverão ser registrados automaticamente.
+Data e horário deverão ser associados automaticamente ao registro.
 
 ## RF27 — Associar descarte à produção
 
@@ -142,19 +140,19 @@ O descarte deverá ser associado à produção ativa.
 
 ## RF28 — Permitir correção
 
-O sistema deverá oferecer uma forma controlada de corrigir um lançamento incorreto.
+O sistema deverá fornecer uma forma controlada de corrigir ou desfazer um lançamento incorreto.
 
-## RF29 — Armazenar registro offline no totem
+## RF29 — Operar localmente no Totem
 
-Caso o totem perca conexão com o servidor, o registro deverá permanecer armazenado localmente.
+Quando não houver comunicação com o servidor, o Totem deverá permitir continuar realizando registros.
 
-## RF30 — Sincronizar registros do totem
+## RF30 — Sincronizar Totem
 
-Os registros pendentes deverão ser transmitidos quando a comunicação voltar.
+Os registros mantidos localmente deverão ser sincronizados automaticamente quando a comunicação retornar.
 
-## RF31 — Evitar duplicidade no totem
+## RF31 — Evitar duplicidade do Totem
 
-Um registro sincronizado mais de uma vez não deverá produzir duplicações no banco.
+A sincronização de um registro já recebido não deverá produzir duplicações no banco.
 
 ---
 
@@ -164,17 +162,17 @@ Um registro sincronizado mais de uma vez não deverá produzir duplicações no 
 
 ```text
 Descartes da triagem =
-Soma das quantidades registradas no totem
+Soma das quantidades registradas no Totem
 ```
 
 ## RF33 — Calcular diferença momentânea
+
+Durante a produção:
 
 ```text
 Diferença momentânea =
 Entrada E1 - Saída E1
 ```
-
-Enquanto a produção estiver ativa, essa diferença não deverá ser considerada perda definitiva.
 
 ## RF34 — Calcular perdas da E1
 
@@ -201,9 +199,61 @@ Aproveitamento E1 =
 
 ---
 
+# Ociosidade
+
+## RF37 — Monitorar atividade da produção
+
+O sistema deverá acompanhar os eventos dos sensores durante uma produção ativa.
+
+## RF38 — Detectar início de ociosidade
+
+Caso nenhum evento seja registrado durante um intervalo configurado, o sistema deverá iniciar um período de ociosidade.
+
+## RF39 — Detectar fim da ociosidade
+
+A ocorrência de um novo evento deverá encerrar o período de ociosidade atual.
+
+## RF40 — Registrar períodos de ociosidade
+
+O sistema deverá armazenar início, fim e duração dos períodos ociosos.
+
+## RF41 — Configurar limite de ociosidade
+
+O sistema deverá permitir configurar o tempo necessário sem atividade para considerar a produção ociosa.
+
+---
+
+# Aplicação web
+
+## RF42 — Disponibilizar Dashboard
+
+A aplicação deverá possuir uma página destinada ao acompanhamento em tempo real da produção.
+
+## RF43 — Disponibilizar página de Produção
+
+A aplicação deverá possuir uma página para gerenciamento das produções.
+
+## RF44 — Disponibilizar página de Relatórios
+
+A aplicação deverá possuir uma área destinada à consulta de métricas e informações históricas.
+
+## RF45 — Disponibilizar página de Dispositivos
+
+A aplicação deverá permitir acompanhar o estado dos dispositivos e canais de comunicação.
+
+## RF46 — Disponibilizar página de Configurações
+
+A aplicação deverá possuir uma área para parâmetros do sistema.
+
+## RF47 — Compartilhar backend
+
+Os diferentes módulos da aplicação deverão utilizar o mesmo backend e banco de dados.
+
+---
+
 # Dashboard
 
-## RF37 — Exibir produção atual
+## RF48 — Exibir produção atual
 
 O dashboard deverá apresentar:
 
@@ -211,9 +261,10 @@ O dashboard deverá apresentar:
 - saída;
 - diferença momentânea;
 - descartes da triagem;
-- status da produção.
+- status da produção;
+- ociosidade atual.
 
-## RF38 — Exibir produção encerrada
+## RF49 — Exibir produção encerrada
 
 O dashboard deverá apresentar:
 
@@ -222,61 +273,120 @@ O dashboard deverá apresentar:
 - perdas E1;
 - descartes;
 - perdas observadas;
-- aproveitamento.
+- aproveitamento;
+- tempo de ociosidade.
 
-## RF39 — Exibir descartes por motivo
+## RF50 — Exibir descartes por motivo
 
-O dashboard deverá apresentar os descartes agrupados pelos motivos registrados no totem.
+Os descartes deverão poder ser visualizados agrupados pelos motivos cadastrados.
 
-## RF40 — Manter histórico
+## RF51 — Atualizar informações em tempo próximo do real
 
-O sistema deverá permitir consultar produções anteriormente encerradas.
+Novos eventos recebidos deverão refletir na aplicação sem necessidade de recarregar manualmente toda a página.
 
 ---
 
-# Monitoramento
+# Relatórios
 
-## RF41 — Monitorar sensor de entrada
+## RF52 — Consultar histórico
 
-O sistema deverá indicar o estado do dispositivo responsável pela entrada.
+O sistema deverá permitir consultar produções encerradas.
 
-## RF42 — Monitorar sensor de saída
+## RF53 — Filtrar por dia
 
-O sistema deverá indicar o estado do dispositivo responsável pela saída.
+Os relatórios deverão poder ser filtrados por dia.
 
-## RF43 — Registrar última comunicação
+## RF54 — Filtrar por intervalo
 
-O sistema deverá armazenar quando ocorreu a última comunicação de cada dispositivo.
+Os relatórios deverão permitir definir intervalo de datas.
 
-## RF44 — Exibir canal de comunicação
+## RF55 — Filtrar por turno
 
-O sistema deverá permitir identificar se o dispositivo está utilizando:
+Os relatórios deverão permitir filtro por turno.
+
+## RF56 — Filtrar por hora
+
+Os relatórios deverão permitir análise por hora ou intervalo de horas.
+
+## RF57 — Filtrar por produção
+
+O sistema deverá permitir selecionar uma produção específica.
+
+## RF58 — Filtrar descartes por motivo
+
+Os relatórios deverão permitir analisar descartes de acordo com o motivo.
+
+## RF59 — Exibir produção por hora
+
+O sistema deverá disponibilizar métricas relacionadas ao fluxo de produção ao longo das horas.
+
+## RF60 — Exibir métricas de ociosidade
+
+Os relatórios deverão permitir consultar:
+
+- tempo ativo;
+- tempo ocioso;
+- percentual de ociosidade;
+- quantidade de períodos ociosos;
+- maior período de ociosidade.
+
+---
+
+# Turnos
+
+## RF61 — Cadastrar turnos
+
+O sistema deverá permitir configurar os turnos utilizados pela empresa.
+
+## RF62 — Definir horário dos turnos
+
+Cada turno deverá possuir horário de início e término.
+
+## RF63 — Utilizar turnos nos relatórios
+
+Os turnos cadastrados deverão poder ser utilizados como filtro nos relatórios.
+
+---
+
+# Monitoramento dos dispositivos
+
+## RF64 — Exibir status dos sensores
+
+O sistema deverá indicar o estado dos sensores de entrada e saída.
+
+## RF65 — Registrar última comunicação
+
+O sistema deverá registrar a última comunicação conhecida de cada dispositivo.
+
+## RF66 — Exibir canal atual
+
+O sistema deverá permitir identificar se o nó está utilizando:
 
 ```text
 Wi-Fi
 LoRa
-Nuvem
+Local
 ```
 
-## RF45 — Monitorar gateway LoRa
+## RF67 — Monitorar gateway LoRa
 
-O sistema deverá indicar se o gateway LoRa está disponível.
+O sistema deverá indicar o estado do gateway conectado ao servidor.
 
-## RF46 — Alertar indisponibilidade total
+## RF68 — Informar eventos pendentes
 
-Caso um dispositivo não consiga se comunicar por Wi-Fi nem LoRa, o sistema deverá apresentar seu estado como indisponível.
-
-## RF47 — Informar sincronização pendente
-
-O sistema deverá permitir identificar quando existirem eventos ainda armazenados localmente aguardando sincronização.
+O sistema deverá permitir identificar quando existirem eventos aguardando sincronização local.
 
 ---
 
-# Cadastros
+# Configurações
 
-## RF48 — Gerenciar motivos de descarte
+## RF69 — Gerenciar motivos de descarte
 
-O sistema deverá permitir cadastrar, ativar e desativar motivos apresentados no totem.
+O sistema deverá permitir cadastrar, editar, ativar e desativar motivos.
+
+## RF70 — Gerenciar parâmetros operacionais
+
+O sistema deverá permitir configurar parâmetros como o limite utilizado para detecção de ociosidade.
 
 ---
 
@@ -288,12 +398,14 @@ O sistema deverá permitir cadastrar, ativar e desativar motivos apresentados no
 | Sensoriamento | RF04–RF07 |
 | Wi-Fi/MQTT | RF08–RF10 |
 | LoRa | RF11–RF16 |
-| Persistência | RF17–RF19 |
-| Deduplicação | RF20–RF22 |
-| Totem | RF23–RF31 |
+| Armazenamento local | RF17–RF19 |
+| Deduplicação | RF20–RF21 |
+| Totem | RF22–RF31 |
 | Cálculos | RF32–RF36 |
-| Dashboard | RF37–RF40 |
-| Monitoramento | RF41–RF47 |
-| Cadastros | RF48 |
-
-Os requisitos poderão ser refinados durante os testes de bancada e a validação na empresa.
+| Ociosidade | RF37–RF41 |
+| Aplicação Web | RF42–RF47 |
+| Dashboard | RF48–RF51 |
+| Relatórios | RF52–RF60 |
+| Turnos | RF61–RF63 |
+| Dispositivos | RF64–RF68 |
+| Configurações | RF69–RF70 |

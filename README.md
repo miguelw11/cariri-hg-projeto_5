@@ -2,15 +2,7 @@
 
 Sistema desenvolvido para monitorar, em tempo real, a movimentação e as perdas de pares de solados durante o processo produtivo da esteira **E1**.
 
-A solução combina:
-
-- contagem automática por sensores;
-- registro manual de descartes;
-- comunicação principal via Wi-Fi;
-- comunicação LoRa como contingência;
-- armazenamento local para recuperação de falhas;
-- servidor central;
-- dashboard de acompanhamento.
+A solução integra sensoriamento automático, registro manual de descartes, comunicação redundante, armazenamento local e uma **aplicação web única**, responsável pelo monitoramento, operação, relatórios e registro dos descartes realizados antes da esteira.
 
 ---
 
@@ -21,28 +13,31 @@ A empresa possui duas esteiras principais:
 - **E1:** etapa de produção/processamento dos pares de solados;
 - **E2:** etapa posterior, responsável pela colocação das correias.
 
-O projeto terá como foco inicial a **E1**, por ser a etapa de interesse em relação às perdas do processo.
+O projeto terá como foco inicial a **esteira E1**, por ser a etapa de interesse em relação às perdas observadas durante o processo.
 
 Antes da entrada na E1, uma funcionária realiza manualmente a triagem dos pares de solados. Produtos considerados inadequados são descartados antes de entrarem na esteira.
 
-Os produtos aprovados passam por um primeiro ponto de contagem e, ao final da E1, por um segundo ponto de contagem.
+Os produtos aprovados passam por um primeiro ponto de contagem e, após percorrerem a E1, passam por um segundo ponto de contagem.
 
 O sistema permitirá acompanhar:
 
-- descartes realizados antes da E1;
+- descartes realizados na triagem;
 - produtos enviados para a E1;
-- produtos que concluíram o processo;
-- perdas ocorridas entre os sensores;
+- produtos que concluíram a E1;
+- perdas identificadas durante o percurso;
+- aproveitamento da E1;
+- períodos de ociosidade;
 - estado dos dispositivos;
-- estado dos canais de comunicação.
+- estado dos canais de comunicação;
+- métricas e relatórios históricos.
 
 ---
 
 ## Objetivo
 
-Desenvolver um sistema capaz de monitorar, registrar e apresentar em tempo real as perdas relacionadas ao processo produtivo da esteira E1.
+Desenvolver um sistema capaz de monitorar, registrar e apresentar em tempo real os dados relacionados à produção e às perdas da esteira E1.
 
-A solução deverá continuar enviando os dados mesmo em situações de indisponibilidade temporária da rede Wi-Fi, utilizando comunicação LoRa como canal alternativo.
+A solução deverá continuar transmitindo os eventos dos sensores mesmo durante falhas temporárias do Wi-Fi, utilizando LoRa como canal de contingência e armazenamento local como última camada de proteção.
 
 ---
 
@@ -76,27 +71,25 @@ A solução deverá continuar enviando os dados mesmo em situações de indispon
 
 ### Triagem
 
-Os produtos rejeitados pela funcionária serão registrados por meio de uma aplicação disponível em um totem.
+Os produtos rejeitados pela funcionária serão registrados através do módulo **Totem** da aplicação web.
 
-Cada registro deverá possuir, no mínimo:
+Cada registro deverá conter, no mínimo:
 
 - motivo;
 - quantidade;
 - produção;
 - data e horário.
 
-A quantidade total recebida pela funcionária não é conhecida inicialmente. Por isso, os descartes da triagem serão tratados como um indicador independente.
+A quantidade total originalmente recebida pela funcionária não é conhecida. Portanto, os descartes da triagem serão tratados como um indicador independente.
 
----
+### Contagem da E1
 
-## Contagem da E1
-
-Dois sensores **E18-D80NK** serão utilizados:
+Serão utilizados dois sensores **E18-D80NK**:
 
 - um no início da E1;
 - um no final da E1.
 
-Cada sensor será conectado a um ESP32 responsável por detectar as passagens e transmitir os eventos.
+Cada sensor será associado a um ESP32-S3 com Wi-Fi e LoRa.
 
 ```text
 Entrada E1 = eventos válidos do sensor inicial
@@ -104,183 +97,258 @@ Entrada E1 = eventos válidos do sensor inicial
 Saída E1 = eventos válidos do sensor final
 ```
 
----
+### Perdas da E1
 
-## Perdas da E1
-
-Depois do encerramento da produção:
+Após o encerramento da produção:
 
 ```text
 Perdas E1 = Entrada E1 - Saída E1
 ```
 
-O sistema não buscará identificar automaticamente o motivo dessas perdas.
+O sistema não tentará identificar automaticamente o motivo dessas perdas.
 
----
-
-## Perdas observadas
-
-Os descartes da triagem e as perdas da E1 poderão ser visualizados de forma consolidada:
+### Perdas observadas
 
 ```text
 Perdas observadas =
 Descartes da triagem + Perdas E1
 ```
 
-Como a quantidade originalmente recebida pela funcionária não é conhecida, esse indicador não representa necessariamente todas as perdas de um lote original.
+Esse valor não representa necessariamente as perdas de um lote original, pois a quantidade inicialmente recebida pela funcionária não é conhecida.
 
 ---
 
 ## Produção em andamento
 
-Enquanto uma produção estiver ativa, a diferença entre entrada e saída não deverá ser considerada perda definitiva.
+Durante uma produção ativa, a diferença entre entrada e saída será apresentada apenas como:
 
 ```text
-Diferença momentânea =
-Entrada E1 - Saída E1
+Diferença momentânea
 ```
 
-Produtos ainda podem estar percorrendo a esteira.
+Ela não deverá ser considerada perda definitiva enquanto existirem produtos percorrendo a E1.
 
-A perda da E1 somente será consolidada após o encerramento da produção e a confirmação de que não existem mais produtos em processamento.
+A perda será consolidada somente após o encerramento da produção e a confirmação de que a esteira não possui mais produtos em processamento.
 
 ---
 
-# Comunicação
+## Detecção de ociosidade
 
-O sistema utilizará três níveis de comunicação e segurança dos dados.
+Durante uma produção ativa, o sistema deverá acompanhar o tempo transcorrido desde os últimos eventos dos sensores.
 
-## 1. Canal principal — Wi-Fi + MQTT
+Caso nenhum evento seja registrado durante um intervalo configurado, o sistema poderá classificar o período como **ociosidade da produção**.
 
-Em condições normais:
+Quando um novo evento ocorrer, o período de ociosidade será encerrado e registrado.
+
+Esses dados poderão ser utilizados para calcular métricas como:
+
+- tempo total ativo;
+- tempo total ocioso;
+- quantidade de períodos ociosos;
+- maior período de ociosidade;
+- percentual de ociosidade.
+
+O tempo limite utilizado para determinar ociosidade deverá ser configurável.
+
+---
+
+# Comunicação e contingência
+
+A solução possuirá três níveis.
+
+## 1. Wi-Fi + MQTT
+
+Canal principal de comunicação.
 
 ```text
 Sensor
-   │
-   ▼
-ESP32
-   │
-   ▼
+   ↓
+ESP32-S3
+   ↓
 Wi-Fi
-   │
-   ▼
+   ↓
 MQTT
-   │
-   ▼
-Notebook
+   ↓
+Servidor
 ```
 
-Esse será o caminho prioritário dos eventos.
+## 2. LoRa
 
----
-
-## 2. Canal de contingência — LoRa
-
-Caso o ESP32 não consiga transmitir pelo canal principal, ele utilizará LoRa como alternativa.
+Quando o canal principal estiver indisponível, os eventos serão transmitidos através de LoRa.
 
 ```text
 Sensor
-   │
-   ▼
-ESP32 + LoRa
-   │
-   ▼
-  LoRa
-   │
-   ▼
-Gateway LoRa
-   │
-   ▼
-Notebook
+   ↓
+ESP32-S3
+   ↓
+LoRa
+   ↓
+ESP32-S3 Gateway
+   ↓
+USB / Serial
+   ↓
+Servidor
 ```
 
-O objetivo é manter o acompanhamento em tempo real mesmo durante falhas do Wi-Fi.
+O gateway ficará conectado fisicamente ao notebook utilizado como servidor principal.
 
-Quando a comunicação Wi-Fi/MQTT voltar, o dispositivo retorna automaticamente ao canal principal.
+## 3. Local
+
+Caso Wi-Fi e LoRa estejam indisponíveis simultaneamente, os eventos deverão permanecer armazenados localmente no nó de sensoriamento.
+
+A utilização de cartão microSD está prevista para essa finalidade, mas o mecanismo definitivo de armazenamento ainda será validado durante o desenvolvimento.
+
+Quando algum canal voltar a ficar disponível, os registros pendentes deverão ser sincronizados.
 
 ---
 
-## 3. Armazenamento local
+## Identificação e deduplicação
 
-Caso Wi-Fi e LoRa estejam indisponíveis simultaneamente, o ESP32 continuará realizando a contagem e armazenará temporariamente os dados localmente.
+Cada evento deverá possuir um identificador único.
 
-Quando algum canal voltar a funcionar, os registros pendentes deverão ser sincronizados.
+O mesmo identificador será mantido independentemente de o evento chegar através de:
+
+- MQTT;
+- LoRa;
+- sincronização posterior.
+
+O backend deverá verificar esse identificador para impedir contagens duplicadas.
+
+---
+
+# Aplicação Web Integrada
+
+A solução utilizará **uma única aplicação web**, dividida em módulos/páginas.
+
+Exemplo inicial:
 
 ```text
-Wi-Fi disponível?
-      │
-      ├── Sim → enviar por MQTT
-      │
-      └── Não
-           │
-           ▼
-      LoRa disponível?
-           │
-           ├── Sim → enviar por LoRa
-           │
-           └── Não
-                │
-                ▼
-         armazenar localmente
+/
+├── /dashboard
+├── /producao
+├── /relatorios
+├── /dispositivos
+├── /configuracoes
+└── /totem
 ```
+
+Embora façam parte da mesma aplicação, cada área possuirá uma finalidade diferente.
+
+### Dashboard
+
+Acompanhamento da produção em tempo real.
+
+### Produção
+
+Início, acompanhamento e encerramento das produções.
+
+### Relatórios
+
+Consulta de métricas e dados históricos.
+
+### Dispositivos
+
+Monitoramento dos sensores, ESP32-S3, gateway e canais de comunicação.
+
+### Configurações
+
+Parâmetros do sistema, como turnos, motivos de descarte e limite de ociosidade.
+
+### Totem
+
+Interface simplificada utilizada pela funcionária para registrar descartes.
+
+A página do totem poderá ser instalada como **PWA**, permitindo uma experiência semelhante a um aplicativo independente.
 
 ---
 
-## Identificação dos eventos
+## Funcionamento local do Totem
 
-Cada passagem válida deverá gerar um evento com identificador único.
+Caso o tablet perca comunicação com o servidor, o módulo Totem deverá continuar permitindo registros.
+
+Os dados serão armazenados localmente no dispositivo e sincronizados quando a comunicação for restabelecida.
 
 Exemplo:
 
-```json
-{
-  "event_id": "ENT-00001234",
-  "device_id": "sensor-entrada-e1",
-  "production_id": 15,
-  "timestamp": "2026-10-06T14:32:10"
-}
+```text
+Wi-Fi disponível
+      ↓
+Totem → API → Banco
+
+Wi-Fi indisponível
+      ↓
+Totem → armazenamento local
+      ↓
+Wi-Fi retorna
+      ↓
+Sincronização → API → Banco
 ```
 
-O mesmo `event_id` deverá ser mantido independentemente de o evento ser enviado por Wi-Fi, LoRa ou sincronização posterior.
+O LoRa será utilizado inicialmente apenas pelos pontos de sensoriamento.
 
-Isso evita que um mesmo produto seja contabilizado duas vezes.
+---
+
+# Relatórios e métricas
+
+A aplicação deverá permitir consultar informações históricas utilizando filtros como:
+
+- dia;
+- intervalo de datas;
+- turno;
+- hora;
+- produção;
+- motivo de descarte.
+
+Entre as métricas previstas estão:
+
+- entrada de produtos;
+- saída de produtos;
+- produção por hora;
+- descartes por motivo;
+- aproveitamento da E1;
+- tempo ativo;
+- tempo ocioso;
+- quantidade de períodos ociosos;
+- histórico das produções.
+
+A perda definitiva da E1 continuará sendo calculada por produção encerrada.
 
 ---
 
 # Arquitetura
 
 ```text
-           SENSOR ENTRADA
-              E18-D80NK
-                  │
-                  ▼
-            ESP32 + LoRa
-              │       │
-              │       └────────── LoRa ────────┐
-              │                                │
-              └── Wi-Fi / MQTT ─────────┐      │
-                                        │      ▼
-           SENSOR SAÍDA                 │  Gateway LoRa
-              E18-D80NK                 │      │
-                  │                     │      │
-                  ▼                     │      │
-            ESP32 + LoRa                │      │
-              │       │                 │      │
-              │       └── LoRa ─────────┘      │
-              │                                │
-              └── Wi-Fi / MQTT ────────────────┤
-                                               │
-TOTEM ─────────────── HTTP/API ────────────────┤
-                                               ▼
-                                            NOTEBOOK
-                                               │
-                        ┌──────────────────────┼─────────────────┐
-                        │                      │                 │
-                     MQTT Broker            Backend          Banco
-                                               │                 │
-                                               └───────┬─────────┘
-                                                       ▼
-                                                   Dashboard
+E18-D80NK                         E18-D80NK
+ Entrada                             Saída
+    │                                  │
+    ▼                                  ▼
+ESP32-S3                          ESP32-S3
+Wi-Fi + LoRa                      Wi-Fi + LoRa
+    │  │                              │  │
+    │  └────────── LoRa ──────┐       │  │
+    │                         │       │  │
+    └──── MQTT ──────┐        │       └──┤
+                     │        ▼          │
+                     │   Gateway LoRa    │
+                     │     ESP32-S3      │
+                     │        │          │
+                     │     USB/Serial    │
+                     │        │          │
+                     └────────┼──────────┘
+                              ▼
+                           NOTEBOOK
+                              │
+              ┌───────────────┼────────────────┐
+              │               │                │
+          MQTT Broker      Backend/API     PostgreSQL
+                              │                │
+                              └───────┬────────┘
+                                      ▼
+                             Aplicação Web
+                                      │
+            ┌────────┬────────┬───────┼────────┐
+            ▼        ▼        ▼       ▼        ▼
+        Dashboard Produção Relatórios Totem Dispositivos
 ```
 
 ---
@@ -290,72 +358,19 @@ TOTEM ─────────────── HTTP/API ──────�
 | Componente | Tecnologia |
 |---|---|
 | Sensor | E18-D80NK |
-| Microcontrolador | ESP32 |
+| Microcontroladores | ESP32-S3 LoRa/Wi-Fi |
 | Comunicação principal | Wi-Fi + MQTT |
-| Comunicação de contingência | LoRa |
-| Armazenamento de contingência | Flash do ESP32 |
-| Broker | Eclipse Mosquitto |
+| Contingência | LoRa |
+| Armazenamento local | microSD / mecanismo a definir |
+| Gateway | ESP32-S3 LoRa via USB/Serial |
 | Backend | Python + FastAPI |
 | Banco | PostgreSQL |
-| Totem | Aplicação Web/PWA |
-| Dashboard | Grafana |
+| Frontend | React + Vite |
+| Tempo real Web | WebSocket |
+| Totem | Módulo Web/PWA |
+| Dashboard | Aplicação própria |
 | Servidor | Notebook |
 | Versionamento | Git |
-
----
-
-## Totem
-
-O totem será utilizado exclusivamente para registrar os descartes realizados antes da E1.
-
-Fluxo básico:
-
-```text
-Registrar descarte
-        │
-        ▼
-Selecionar motivo
-        │
-        ▼
-Informar quantidade
-        │
-        ▼
-Confirmar
-```
-
-Caso o totem perca acesso ao servidor, os registros deverão ser mantidos localmente até a comunicação ser restabelecida.
-
-O LoRa será destinado inicialmente aos dispositivos de sensoriamento, não ao totem.
-
----
-
-## Dashboard
-
-O dashboard deverá apresentar informações como:
-
-- entrada da E1;
-- saída da E1;
-- diferença momentânea;
-- perdas da E1;
-- descartes da triagem;
-- descartes por motivo;
-- perdas observadas;
-- aproveitamento da E1;
-- histórico de produções;
-- estado dos sensores;
-- canal de comunicação utilizado;
-- estado do gateway LoRa.
-
-Exemplo:
-
-```text
-Entrada E1:              1.000
-Saída E1:                  970
-Perdas E1:                  30
-Descartes na triagem:       15
-Perdas observadas:          45
-Aproveitamento E1:         97%
-```
 
 ---
 
@@ -376,8 +391,9 @@ Aproveitamento E1:         97%
 ```text
 docs/
 │
-├── funcionais.md
-├── naofuncionais.md
+├── requisitos/
+│   ├── funcionais.md
+│   └── naofuncionais.md
 │
 ├── arquitetura/
 │   └── README.md
@@ -394,108 +410,644 @@ docs/
 └── imagens/
 ```
 
-### `docs/arquitetura/`
-
-Arquitetura geral, componentes, fluxo de dados, servidor e banco de dados.
-
-### `docs/hardware/`
-
-ESP32, E18-D80NK, módulos LoRa, alimentação, circuitos e montagem.
-
-### `docs/comunicacao/`
-
-MQTT, Wi-Fi, LoRa, sincronização, armazenamento local, fallback e tratamento de duplicidades.
-
-### `docs/testes/`
-
-Testes dos sensores, Wi-Fi, LoRa, recuperação de falhas, sincronização e testes realizados na E1.
-
 ---
 
 # Estrutura inicial do repositório
+
+A estrutura abaixo representa uma organização inicial do projeto. Ela poderá ser ajustada conforme o desenvolvimento evoluir.
 
 ```text
 monitoramento-e1/
 │
 ├── README.md
 │
-├── firmware/
-│   ├── sensor-entrada/
-│   ├── sensor-saida/
-│   └── gateway-lora/
+├── frontend/
+│   ├── public/
+│   │   ├── icons/
+│   │   └── manifest.webmanifest
+│   │
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── charts/
+│   │   │   ├── cards/
+│   │   │   ├── forms/
+│   │   │   └── layout/
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── Dashboard/
+│   │   │   ├── Production/
+│   │   │   ├── Reports/
+│   │   │   ├── Devices/
+│   │   │   ├── Settings/
+│   │   │   └── Totem/
+│   │   │
+│   │   ├── services/
+│   │   │   ├── api.ts
+│   │   │   ├── websocket.ts
+│   │   │   ├── storage.ts
+│   │   │   └── sync.ts
+│   │   │
+│   │   ├── hooks/
+│   │   ├── contexts/
+│   │   ├── routes/
+│   │   │   └── index.tsx
+│   │   ├── types/
+│   │   ├── utils/
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   │
+│   ├── .env.example
+│   ├── package.json
+│   ├── vite.config.ts
+│   └── README.md
 │
 ├── backend/
-├── totem/
-├── dashboard/
+│   ├── app/
+│   │   ├── main.py
+│   │   │
+│   │   ├── api/
+│   │   │   ├── production.py
+│   │   │   ├── losses.py
+│   │   │   ├── reports.py
+│   │   │   ├── devices.py
+│   │   │   └── settings.py
+│   │   │
+│   │   ├── models/
+│   │   │   ├── production.py
+│   │   │   ├── sensor_event.py
+│   │   │   ├── manual_loss.py
+│   │   │   ├── device.py
+│   │   │   ├── idle_period.py
+│   │   │   └── shift.py
+│   │   │
+│   │   ├── schemas/
+│   │   │   ├── production.py
+│   │   │   ├── sensor_event.py
+│   │   │   ├── loss.py
+│   │   │   └── report.py
+│   │   │
+│   │   ├── services/
+│   │   │   ├── production_service.py
+│   │   │   ├── loss_service.py
+│   │   │   ├── report_service.py
+│   │   │   ├── idle_service.py
+│   │   │   └── sync_service.py
+│   │   │
+│   │   ├── mqtt/
+│   │   │   ├── client.py
+│   │   │   └── handlers.py
+│   │   │
+│   │   ├── gateway/
+│   │   │   └── serial_reader.py
+│   │   │
+│   │   ├── websocket/
+│   │   │   └── manager.py
+│   │   │
+│   │   ├── database/
+│   │   │   ├── connection.py
+│   │   │   └── session.py
+│   │   │
+│   │   ├── core/
+│   │   │   ├── config.py
+│   │   │   └── logging.py
+│   │   │
+│   │   └── utils/
+│   │
+│   ├── tests/
+│   │   ├── test_production.py
+│   │   ├── test_events.py
+│   │   ├── test_reports.py
+│   │   └── test_sync.py
+│   │
+│   ├── requirements.txt
+│   ├── .env.example
+│   └── README.md
 │
-└── docs/
-    ├── funcionais.md
-    ├── naofuncionais.md
-    ├── arquitetura/
-    ├── hardware/
-    ├── comunicacao/
-    ├── testes/
-    └── imagens/
+├── firmware/
+│   ├── sensor-entrada/
+│   │   ├── src/
+│   │   └── README.md
+│   │
+│   ├── sensor-saida/
+│   │   ├── src/
+│   │   └── README.md
+│   │
+│   └── gateway-lora/
+│       ├── src/
+│       └── README.md
+│
+├── database/
+│   ├── migrations/
+│   ├── seeds/
+│   ├── schema.sql
+│   └── README.md
+│
+├── docs/
+│   ├── requisitos/
+│   │   ├── funcionais.md
+│   │   └── naofuncionais.md
+│   │
+│   ├── arquitetura/
+│   │   └── README.md
+│   │
+│   ├── hardware/
+│   │   └── README.md
+│   │
+│   ├── comunicacao/
+│   │   └── README.md
+│   │
+│   ├── testes/
+│   │   └── README.md
+│   │
+│   └── imagens/
+│
+├── .gitignore
+├── .env.example
+└── docker-compose.yml
 ```
 
 ---
+
+## Organização do Frontend
+
+O diretório `frontend/` concentra toda a **Aplicação Web Integrada**.
+
+### `pages/`
+
+Contém as páginas principais:
+
+- `Dashboard/` — monitoramento da produção em tempo real;
+- `Production/` — início, acompanhamento e encerramento das produções;
+- `Reports/` — métricas, gráficos e filtros;
+- `Devices/` — sensores, ESP32-S3, gateway e canais de comunicação;
+- `Settings/` — configurações do sistema;
+- `Totem/` — registro dos descartes realizados na triagem.
+
+### `components/`
+
+Contém elementos reutilizáveis entre as páginas, como:
+
+- cards de indicadores;
+- gráficos;
+- formulários;
+- tabelas;
+- menus;
+- indicadores de status;
+- componentes de filtros.
+
+### `services/`
+
+Centraliza a comunicação e persistência utilizadas pelo frontend.
+
+#### `api.ts`
+
+Responsável pelas requisições HTTP feitas ao backend.
+
+Exemplo:
+
+```text
+Frontend
+   ↓
+api.ts
+   ↓
+FastAPI
+```
+
+#### `websocket.ts`
+
+Responsável pelas atualizações em tempo real recebidas do backend.
+
+Será utilizado principalmente em páginas como:
+
+```text
+/dashboard
+/dispositivos
+/producao
+```
+
+#### `storage.ts`
+
+Responsável pelo armazenamento local no navegador.
+
+Será especialmente importante para o módulo Totem quando houver indisponibilidade temporária da comunicação com o servidor.
+
+Inicialmente, o armazenamento poderá utilizar tecnologias como `IndexedDB`.
+
+Exemplo:
+
+```text
+Funcionária registra descarte
+          ↓
+Servidor indisponível
+          ↓
+storage.ts
+          ↓
+IndexedDB
+```
+
+#### `sync.ts`
+
+Responsável por sincronizar registros locais que ainda não foram enviados ao servidor.
+
+Fluxo esperado:
+
+```text
+Registro local
+     ↓
+Wi-Fi retorna
+     ↓
+sync.ts
+     ↓
+API
+     ↓
+Backend
+     ↓
+PostgreSQL
+```
+
+Cada registro deverá possuir um identificador único para impedir duplicações durante a sincronização.
+
+---
+
+## PWA
+
+O módulo Totem deverá ser preparado para funcionar como uma **Progressive Web App (PWA)**.
+
+O arquivo:
+
+```text
+public/manifest.webmanifest
+```
+
+será responsável por configurações relacionadas à instalação da aplicação no dispositivo, como:
+
+- nome da aplicação;
+- ícones;
+- modo de exibição;
+- página inicial.
+
+Exemplo de uso:
+
+```text
+Tablet
+
+[ Monitoramento E1 ]
+        ↓
+abre diretamente
+        ↓
+/totem
+```
+
+A aplicação também deverá possuir suporte a Service Worker para permitir o carregamento da interface mesmo durante indisponibilidades temporárias da rede.
+
+A configuração da PWA poderá ser realizada através do próprio Vite e de ferramentas compatíveis com ele.
+
+---
+
+## `hooks/`
+
+Armazena hooks reutilizáveis da aplicação React.
+
+Exemplos futuros:
+
+```text
+useProduction()
+useDevices()
+useWebSocket()
+useConnectionStatus()
+```
+
+---
+
+## `contexts/`
+
+Responsável por estados que precisam ser compartilhados entre diferentes páginas.
+
+Exemplos:
+
+- produção ativa;
+- estado da conexão;
+- informações do usuário;
+- configurações gerais.
+
+---
+
+## `routes/`
+
+Centraliza as rotas da aplicação.
+
+Exemplo:
+
+```text
+/dashboard
+/producao
+/relatorios
+/dispositivos
+/configuracoes
+/totem
+```
+
+---
+
+## Organização do Backend
+
+O diretório `backend/` concentra as regras de negócio, APIs e integração entre os diferentes componentes do projeto.
+
+### `api/`
+
+Contém os endpoints disponibilizados pelo FastAPI.
+
+Exemplos:
+
+```text
+/api/production
+/api/losses
+/api/reports
+/api/devices
+/api/settings
+```
+
+---
+
+### `models/`
+
+Representa as entidades armazenadas no banco de dados.
+
+Exemplos:
+
+- produção;
+- evento de sensor;
+- descarte;
+- dispositivo;
+- período de ociosidade;
+- turno.
+
+---
+
+### `schemas/`
+
+Define as estruturas utilizadas para entrada e saída de dados da API.
+
+Essa separação evita utilizar diretamente os modelos do banco como contrato da API.
+
+---
+
+### `services/`
+
+Concentra as principais regras de negócio do sistema.
+
+Exemplos:
+
+- cálculo das perdas;
+- cálculo do aproveitamento;
+- encerramento da produção;
+- detecção de ociosidade;
+- geração de métricas;
+- sincronização de eventos;
+- tratamento de registros pendentes.
+
+---
+
+### `mqtt/`
+
+Responsável pela comunicação com os ESP32-S3 através do canal principal.
+
+Fluxo:
+
+```text
+ESP32-S3
+   ↓
+MQTT
+   ↓
+mqtt/handlers.py
+   ↓
+services/
+   ↓
+PostgreSQL
+```
+
+---
+
+### `gateway/`
+
+Responsável pela comunicação com o ESP32-S3 utilizado como gateway LoRa.
+
+O gateway ficará conectado ao notebook através de USB/Serial.
+
+Fluxo:
+
+```text
+ESP32-S3 Sensor
+      ↓
+     LoRa
+      ↓
+ESP32-S3 Gateway
+      ↓
+USB / Serial
+      ↓
+serial_reader.py
+      ↓
+Backend
+```
+
+O backend deverá tratar eventos provenientes do MQTT e do gateway de forma equivalente.
+
+---
+
+### `websocket/`
+
+Responsável pela comunicação em tempo real entre backend e aplicação web.
+
+Exemplo:
+
+```text
+Sensor registra passagem
+        ↓
+Backend processa
+        ↓
+WebSocket
+        ↓
+Dashboard atualiza
+```
+
+---
+
+### `database/`
+
+Contém a configuração utilizada pelo backend para acessar o PostgreSQL.
+
+```text
+connection.py
+session.py
+```
+
+Esse diretório não substitui o diretório `database/` localizado na raiz do projeto.
+
+O diretório da raiz concentra elementos estruturais do banco, como:
+
+- migrations;
+- seeds;
+- schema.
+
+---
+
+### `core/`
+
+Contém configurações gerais do backend.
+
+Exemplos:
+
+- variáveis de ambiente;
+- configuração da aplicação;
+- logging;
+- parâmetros gerais.
+
+---
+
+## Testes automatizados
+
+O diretório:
+
+```text
+backend/tests/
+```
+
+será utilizado para testes automatizados.
+
+Inicialmente poderão existir:
+
+```text
+test_production.py
+test_events.py
+test_reports.py
+test_sync.py
+```
+
+Entre os cenários importantes estão:
+
+- cálculo correto das perdas;
+- deduplicação de eventos;
+- sincronização após falha;
+- filtros dos relatórios;
+- encerramento de produção;
+- cálculo da ociosidade.
+
+---
+
+## Variáveis de ambiente
+
+Frontend e backend deverão possuir arquivos:
+
+```text
+.env.example
+```
+
+contendo apenas os nomes das configurações necessárias, sem informações sensíveis.
+
+Exemplo no backend:
+
+```text
+DATABASE_URL=
+MQTT_HOST=
+MQTT_PORT=
+SERIAL_PORT=
+```
+
+Exemplo no frontend:
+
+```text
+VITE_API_URL=
+VITE_WS_URL=
+```
+
+Os arquivos `.env` reais não deverão ser versionados.
+
+---
+
+## Docker Compose
+
+O arquivo:
+
+```text
+docker-compose.yml
+```
+
+fica previsto para facilitar a configuração do ambiente local.
+
+Ele poderá ser utilizado posteriormente para iniciar serviços como:
+
+```text
+PostgreSQL
+Mosquitto
+Backend
+```
+
+O uso de Docker **não será obrigatório nas primeiras etapas do desenvolvimento**.
+
+A equipe poderá iniciar os componentes diretamente no notebook e adotar Docker quando a infraestrutura estiver mais estável.
+
+---
+
+## Criação das pastas
+
+A estrutura apresentada representa o formato desejado do projeto, mas não existe necessidade de criar todas as pastas vazias imediatamente.
+
+A recomendação é iniciar com os diretórios necessários para cada etapa e expandir conforme as funcionalidades forem implementadas.
+
+Por exemplo:
+
+```text
+frontend/
+├── src/
+│   ├── pages/
+│   ├── components/
+│   └── services/
+└── package.json
+
+backend/
+├── app/
+│   ├── api/
+│   ├── models/
+│   ├── services/
+│   └── database/
+└── requirements.txt
+```
+
+As demais estruturas deverão ser adicionadas conforme o projeto evoluir.
 
 # Equipe
 
 O desenvolvimento será dividido inicialmente em quatro frentes:
 
-### Hardware e IoT
+1. **Hardware e IoT**
+   - E18-D80NK;
+   - ESP32-S3;
+   - LoRa;
+   - armazenamento local;
+   - firmware.
 
-- E18-D80NK;
-- ESP32;
-- módulos LoRa;
-- firmware;
-- testes físicos.
+2. **Backend e comunicação**
+   - MQTT;
+   - gateway serial;
+   - FastAPI;
+   - deduplicação;
+   - sincronização;
+   - regras de negócio.
 
-### Backend
+3. **Frontend**
+   - aplicação web;
+   - dashboard;
+   - produção;
+   - totem;
+   - dispositivos.
 
-- MQTT;
-- API;
-- banco;
-- deduplicação;
-- sincronização;
-- processamento dos eventos.
-
-### Totem
-
-- interface;
-- registros de descarte;
-- funcionamento offline;
-- sincronização.
-
-### Dashboard e integração
-
-- Grafana;
-- indicadores;
-- monitoramento;
-- testes de contingência;
-- integração geral.
-
----
-
-# Etapas previstas
-
-1. Levantamento físico da E1.
-2. Testes do E18-D80NK.
-3. Contagem local com ESP32.
-4. Comunicação Wi-Fi/MQTT.
-5. Backend e banco.
-6. Totem.
-7. Dashboard.
-8. Armazenamento local dos eventos.
-9. Comunicação LoRa.
-10. Gateway LoRa.
-11. Lógica de fallback.
-12. Deduplicação dos eventos.
-13. Testes de queda de Wi-Fi.
-14. Testes de queda simultânea Wi-Fi/LoRa.
-15. Integração completa.
-16. Piloto na empresa.
+4. **Dados, relatórios e integração**
+   - PostgreSQL;
+   - métricas;
+   - filtros;
+   - ociosidade;
+   - relatórios;
+   - testes.
 
 ---
 
